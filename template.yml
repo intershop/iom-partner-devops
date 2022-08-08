@@ -113,6 +113,7 @@ jobs:
   ############################################################################
 
   - script: |
+      set -x
       set -e
       
       if [ -z "${{ parameters.dockerRepoIOMServiceConnection }}" ]; then
