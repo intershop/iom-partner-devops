@@ -179,8 +179,10 @@ jobs:
   - script: |
       set -ex
 
+      mvn --version
+
       # Determine IOM version, requested by IOM project.
-      IOM_VERSION=$(mvn help:evaluate -Dexpression=iom.version -q -DforceStdout | tail -1)
+      IOM_VERSION=$(mvn help:evaluate -Dexpression=platform.version -q -DforceStdout | tail -1)
       if [ ! -z "$IOM_VERSION" ] && echo "$IOM_VERSION" | grep -q '^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$'; then
         echo "##vso[task.setvariable variable=IOM_VERSION;]$IOM_VERSION"
         IOM_MINOR_VERSION=$(echo "$IOM_VERSION" | sed 's|\.[^.]*$||g')
