@@ -1,0 +1,694 @@
+################################################################################
+# Parameters have to be specified by the caller, to customize the pipeline
+# for a certain project
+################################################################################
+parameters:
+
+  # Every partner has it's own agent-pool, therefore the name of the pool cannot
+  # be hardcoded in the pipeline template.
+- name: agentPool
+  type: string
+  default: ''
+
+  # Service connection to the Docker repository, containing the IOM product
+  # images.
+- name: dockerRepoIOMServiceConnection
+  type: string
+  default: ''
+
+  # Name of Docker repository, containing the IOM product images.
+  # Overwrites the property intershop.docker.repo of IOM project.
+- name: dockerRepoIOM
+  type: string
+  default: ''
+
+  # Service connection to the ACR of the project.
+- name: acrServiceConnection
+  type: string
+  default: ''
+
+  # Repository in ACR including host name.
+- name: acr
+  type: string
+  default: ''
+
+  # Name of project environment, that will be used for CI installation.
+- name: projectEnvName
+  type: string
+  default: ci
+  
+  # Name of projects Maven repository.
+- name: artifactsFeed
+  type: string
+  default: ''
+
+  # Regular expression to check branch name of the IOM project.
+  # Only if the regex is matching, the successfully tested Docker images will be provided in ACR.
+- name: branchesForPublication
+  type: string
+  default: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
+  
+################################################################################
+# Variables are controlling the behaviour of the pipeline.
+################################################################################
+variables:
+  # Version of Helm.
+  #HELM_VERSION: 3.8.2
+  HELM_VERSION: 3.6.3
+
+  # IOM Helm Charts.
+  # TODO: use latest version
+  IOM_HELM_VERSION: 2.1.0
+  IOM_HELM_URL: https://intershop.github.io/helm-charts
+
+  DBACCOUNT_IMAGE_NAME: iom-dbaccount
+  DBACCOUNT_IMAGE_TAG: 1.5.0
+
+  # JDK version, depending on IOM version (space before \ is required).
+  IOM2JDK:      "[4.1]=11 \
+                 [4.0]=11"
+
+  UBUNTU_MIRROR: http://azure.archive.ubuntu.com/ubuntu/
+
+jobs:
+
+- job: CI
+  pool: '${{ parameters.agentPool }}'
+  continueOnError: false
+  timeoutInMinutes: 300
+  workspace:
+    clean: all
+  variables:
+    
+    #---------------------------------------------------------------------------
+    # Constants
+    #---------------------------------------------------------------------------
+    
+    # Local maven repository has to be created in workspace.
+    M2_LOCAL_REPO: local-maven-repo
+    # Std env. variable, that is automatically used by mvn.
+    MAVEN_OPTS: "-Dmaven.repo.local=$(Pipeline.Workspace)/$(M2_LOCAL_REPO)"
+    
+    # TODO: minikube should be pre-installed. MINIKUBE_URL and MINIKUBE_INSTALL_DIR should be removed.
+    MINIKUBE_URL: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+    MINIKUBE_INSTALL_DIR: minikube
+    # MINIKUBE_HOME is defining where minikube stores its data .
+    MINIKUBE_HOME: $(Pipeline.Workspace)/$(MINIKUBE_INSTALL_DIR)
+    
+    # Directory, where to checkout project.
+    PROJECT_PATH: project
+
+    # Directory for log files.
+    LOG_DIR: logs
+    
+    # Helm release, installed by this pipeline.
+    IOM_HELM_RELEASE: ci
+
+    # Kubernetes namespace, used by this pipeline.
+    IOM_KUBERNETES_NAMESPACE: iom
+
+    # Number of IOM application servers.
+    REPLICA_COUNT: 2
+
+    # Timeout for import of test-data.
+    IMPORT_TESTDATA_TIMEOUT: 300
+    
+    #---------------------------------------------------------------------------
+    # Runtime variables to control the CI process.
+    #---------------------------------------------------------------------------
+
+    IOM_VERSION:        ""
+    IOM_MINOR_VERSION:  ""
+    JDK_MAJOR_VERSION:  ""
+    PROJECT_VERSION:    ""
+    M2_REPO_CACHE_HIT:  ""
+    MINIKUBE_CACHE_HIT: ""
+    INGRESS_IP:         ""
+    POSTGRES_IP:        ""
+    IS_RELEASE_BUILD:   false
+    IS_PRIVATE_BRANCH:  true
+
+  steps:
+
+  ############################################################################
+  # Prepare CI environment.
+  ############################################################################
+
+  - script: |
+      set -e
+      
+      if [ -z "${{ parameters.dockerRepoIOMServiceConnection }}" ]; then
+        echo "##[error] Parameter dockerRepoIOMServiceConnection must not be empty!"
+        exit 1
+      fi
+      if [ -z "${{ parameters.dockerRepoIOM }}" ]; then
+        echo "##[error] Parameter dockerRepoIOM must not be empty!"
+        exit 1
+      fi
+      if [ -z "${{ parameters.acrServiceConnection }}" ]; then
+        echo "##[error] Parameter acrServiceConnection must not be empty!"
+        exit 1
+      fi
+      if [ -z "${{ parameters.acr }}" ]; then
+        echo "##[error] Parameter acr must not be empty!"
+        exit 1
+      fi
+      if [ -z "${{ parameters.artifactsFeed }}" ]; then
+        echo "##[error] Parameter artifactsFeed must not be empty!"
+        exit 1
+      fi
+      
+      cat > "$PIPELINE_WORKSPACE/config.md" <<EOF
+      # pipeline configuration
+
+          HELM_VERSION: $HELM_VERSION
+          IOM_HELM_VERSION: $IOM_HELM_VERSION
+          IOM_HELM_URL: $IOM_HELM_URL
+          MINIKUBE_URL: $MINIKUBE_URL
+          IOM_HELM_RELEASE: $IOM_HELM_RELEASE
+          IOM_KUBERNETES_NAMESPACE: $IOM_KUBERNETES_NAMESPACE
+          REPLICA_COUNT: $REPLICA_COUNT
+          IMPORT_TESTDATA_TIMEOUT: $IMPORT_TESTDATA_TIMEOUT
+          
+      # parameters
+      
+          dockerRepoIOMServiceConnection: ${{ parameters.dockerRepoIOMServiceConnection }}
+          dockerRepoIOM: ${{ parameters.dockerRepoIOM }}
+          acrServiceConnection: ${{ parameters.acrServiceConnection }}
+          acr: ${{ parameters.acr }}
+          artifactsFeed: ${{ parameters.artifactsFeed }}
+      EOF
+    timeoutInMinutes: 1
+    displayName: "Check parameters"
+    #enabled: false
+
+  - checkout: self
+    path: $(PROJECT_PATH)
+    clean: true
+    timeoutInMinutes: 5
+    displayName: "Checkout IOM project @$(Build.SourceBranchName)"
+    #enabled: false
+
+  - script: |
+      set -e
+      
+      sudo apt update
+      sudo apt install -y curl maven
+    timeoutInMinutes: 3
+    displayName: "Install tools"
+    #enabled: false
+
+  - script: |
+      set -e
+
+      # Determine IOM version, requested by IOM project.
+      IOM_VERSION=$(mvn help:evaluate -Dexpression=iom.version -q -DforceStdout | tail -1)
+      if [ ! -z "$IOM_VERSION" ] && echo "$IOM_VERSION" | grep -q '^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$'; then
+        echo "##vso[task.setvariable variable=IOM_VERSION;]$IOM_VERSION"
+        IOM_MINOR_VERSION=$(echo "$IOM_VERSION" | sed 's|\.[^.]*$||g')
+        echo "##vso[task.setvariable variable=IOM_MINOR_VERSION;]$IOM_MINOR_VERSION"
+      else
+        echo "##[error] Unable to determine IOM version, found: '$IOM_VERSION'"
+        exit 1
+      fi
+
+      # Determine Project version.
+      PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout | tail -1)
+      if [ ! -z "$PROJECT_VERSION" ]; then
+        echo "##vso[task.setvariable variable=PROJECT_VERSION;]$PROJECT_VERSION"
+      else
+        echo "##[error] unable to determine project version."
+        exit 1
+      fi
+
+      # Determine JDK version
+      declare -A IOM2JDK=( $(IOM2JDK) )
+
+      JDK_MAJOR_VERSION="${IOM2JDK[$IOM_MINOR_VERSION]}"
+      echo "##vso[task.setvariable variable=JDK_MAJOR_VERSION;]$JDK_MAJOR_VERSION"
+
+      cat >> "$PIPELINE_WORKSPACE/config.md" <<EOF
+
+      # project information
+    
+          IOM_VERSION: $IOM_VERSION
+          IOM_MINOR_VERSION: $IOM_MINOR_VERSION
+          PROJECT_VERSION: $PROJECT_VERSION
+
+      # build environment
+        
+          JDK_MAJOR_VERSION: $JDK_MAJOR_VERSION
+      EOF
+    timeoutInMinutes: 1
+    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)
+    displayName: "Get project properties"
+    #enabled: false
+
+  - task: Cache@2
+    inputs:
+      key: 'minikube | "$(IOM_VERSION)" | "$(PROJECT_VERSION)"'
+      path: "$(Pipeline.Workspace)/$(MINIKUBE_INSTALL_DIR)"
+      cacheHitVar: MINIKUBE_CACHE_HIT
+    timeoutInMinutes: 5
+    displayName: "Create/restore minikube installation"
+    #enabled: false
+  
+  - task: Cache@2
+    inputs:
+      key: 'mvn repo cache | "$(IOM_VERSION)" | "$(PROJECT_VERSION)"'
+      path: "$(Pipeline.Workspace)/$(M2_LOCAL_REPO)"
+      cacheHitVar: M2_REPO_CACHE_HIT
+    timeoutInMinutes: 5
+    displayName: "Create/restore local maven cache"
+    #enabled: false
+
+  - script: |
+      set -e
+
+      # Download minikube.
+      mkdir "$MINIKUBE_INSTALL_DIR"
+      cd "$MINIKUBE_INSTALL_DIR"
+      curl -LO "$MINIKUBE_URL"
+      # Install minikube.
+      chmod +x $(ls | head -n 1)
+      ln -s $(ls | head -n 1) minikube
+    workingDirectory: $(Pipeline.Workspace)
+    timeoutInMinutes: 5
+    displayName: Install minikube
+    condition: and(succeeded(), eq(variables.MINIKUBE_CACHE_HIT, false))
+    #enabled: false
+
+  - script:
+      echo "##vso[task.setvariable variable=PATH;]$PIPELINE_WORKSPACE/$MINIKUBE_INSTALL_DIR:$PATH"
+    timeoutInMinutes: 1
+    displayName: Set PATH
+    #enabled: false
+    
+  - task: JavaToolInstaller@0
+    inputs:
+      versionSpec: '$(JDK_MAJOR_VERSION)'
+      jdkArchitectureOption: 'x64'
+      jdkSourceOption: 'PreInstalled'
+
+  - task: HelmInstaller@1
+    inputs: 
+      helmVersionToInstall: $(HELM_VERSION)
+    timeoutInMinutes: 3
+    displayName: "Install Helm"
+    #enabled: false
+
+  - task: MavenAuthenticate@0
+    inputs:
+      artifactsFeeds: ${{ parameters.artifactsFeed }}
+    timeoutInMinutes: 1
+    displayName: "Maven authenticate"
+    #enabled: false
+
+    ##############################################################################
+    # Create Docker image.
+    ##############################################################################
+
+  - task: Docker@2
+    inputs:
+      command: login
+      containerRegistry: ${{ parameters.dockerRepoIOMServiceConnection }}
+    timeoutInMinutes: 1
+    displayName: Login into IOM docker repo
+    #enabled: false
+
+  - script: |
+      set -e
+      
+      # Start minikube
+      docker version --format {{.Server.Os}}-{{.Server.Version}}
+      minikube start --vm-driver=docker
+    displayName: "Start minikube"
+    timeoutInMinutes: 5
+    #enabled: false
+    
+  - script: |
+      set -e
+
+      eval $(minikube -p minikube docker-env)
+      mvn clean package -Pdocker \
+        -Dubuntu.mirror.x64=$UBUNTU_MIRROR \
+        -Dintershop.docker.repo=${{ parameters.dockerRepoIOM }} \
+        -Dimage.docker.opts='--docker-opts="--no-cache" --get-image-name="'$PIPELINE_WORKSPACE/project-image-name.txt'" --get-image-tag="'$PIPELINE_WORKSPACE/project-image-tag.txt'"'
+    timeoutInMinutes: 30
+    displayName: "Create project image"
+    workingDirectory: "$(Pipeline.Workspace)/$(PROJECT_PATH)"
+    #enabled: false
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit' # Options: JUnit, NUnit, VSTest, xUnit, cTest
+      testResultsFiles: '**/TEST-*.xml'
+      searchFolder: '$(Pipeline.Workspace)/$(PROJECT_PATH)'
+      testRunTitle: junit-tests
+      mergeTestResults: true 
+      failTaskOnFailedTests: true
+      publishRunAttachments: true
+    continueOnError: true
+    timeoutInMinutes: 1
+    condition: always()
+    displayName: Publish junit test results
+    #enabled: false
+
+    ##############################################################################
+    # Install Project in Minikube.
+    ##############################################################################
+
+  - script: |
+      set -e
+
+      eval $(minikube -p minikube docker-env)
+      docker pull ${{ parameters.dockerRepoIOM }}/$DBACCOUNT_IMAGE_NAME:$DBACCOUNT_IMAGE_TAG
+      docker tag ${{ parameters.dockerRepoIOM }}/$DBACCOUNT_IMAGE_NAME:$DBACCOUNT_IMAGE_TAG $DBACCOUNT_IMAGE_NAME:$DBACCOUNT_IMAGE_TAG
+      
+    displayName: "Provide dbaccount locally"
+    timeoutInMinutes: 5
+    #enabled: false
+  
+  - script: |
+      set -e
+
+      # Create values file.
+      cat > values.yaml <<EOF
+      replicaCount: $REPLICA_COUNT
+      image:
+        repository: $(cat $PIPELINE_WORKSPACE/project-image-name.txt)
+        tag: $(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
+      dbaccount:
+        enabled: true
+        image:
+          repository: $DBACCOUNT_IMAGE_NAME
+          tag: $DBACCOUNT_IMAGE_TAG
+      project:
+        envName: ${{ parameters.projectEnvName }}
+        importTestData: true
+        importTestDataTimeout: $IMPORT_TESTDATA_TIMEOUT
+      persistence:
+        hostPath: /mnt/share
+      ingress:
+        annotations:
+          nginx.ingress.kubernetes.io/ssl-redirect: "false"
+        className: nginx-iom
+        hosts:
+          - host:
+            paths:
+              - path: /
+                pathType: Prefix
+      postgres:
+        enabled: true
+        persistence:
+          enabled: false
+        service:
+          type: LoadBalancer
+      mailhog:
+        enabled: true
+        probes:
+          enabled: false
+        ingress:
+          enabled: false
+      nginx:
+        enabled: true
+        proxy:
+          enabled: false
+      ingress-nginx:
+        rbac:
+          scope: false
+        controller:
+          scope:
+            enabled: false
+          service:
+            type: LoadBalancer
+            ports:
+              # for running in user-space, ports have to > 1024
+              http:  8080
+              https: 8443
+      EOF
+
+      # Convert values file into markdown format.
+      echo '# Helm values' > "$PIPELINE_WORKSPACE/values.md"
+      cat values.yaml | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/values.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/values.md"
+
+      # Start tunnel in background.
+      # See https://minikube.sigs.k8s.io/docs/handbook/accessing/#loadbalancer-access
+      minikube tunnel > /dev/null 2>&1 &
+
+      # create log-directory
+      mkdir $LOG_DIR
+      
+      kubectl create namespace $IOM_KUBERNETES_NAMESPACE
+      
+      # Install IOM Helm charts
+      helm repo add intershop $IOM_HELM_URL
+      helm repo update
+      
+      # Install IOM project.
+      helm install $IOM_HELM_RELEASE intershop/iom --version $IOM_HELM_VERSION -f values.yaml --namespace $IOM_KUBERNETES_NAMESPACE --timeout 20m0s --wait
+      # Wait for import of test-data + 1 minute.
+      # If import of test-data fails, the pod will be restarted.
+      sleep $(expr $IMPORT_TESTDATA_TIMEOUT + 60)
+    timeoutInMinutes: 30
+    workingDirectory: $(Pipeline.Workspace)
+    displayName: "Install IOM in minikube"
+    #enabled: false
+
+  - script: |
+      set -e
+
+      # get IP of ingress
+      INGRESS_IP=$(kubectl get service $IOM_HELM_RELEASE-ingress-nginx-controller -n $IOM_KUBERNETES_NAMESPACE -o jsonpath={.status.loadBalancer.ingress[0].ip})
+      if echo "$INGRESS_IP" |  grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+        echo "##vso[task.setvariable variable=INGRESS_IP;]$INGRESS_IP"
+      else
+        echo "##[error] no ingress IP available!"
+        exit 1
+      fi
+
+      # get IP of postgres
+      POSTGRES_IP=$(kubectl get service $IOM_HELM_RELEASE-postgres -n $IOM_KUBERNETES_NAMESPACE -o jsonpath={.status.loadBalancer.ingress[0].ip})
+      if echo "$POSTGRES_IP" |  grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+        echo "##vso[task.setvariable variable=POSTGRES_IP;]$POSTGRES_IP"
+      else
+        echo "##[error] no postgres IP available!"
+        exit 1
+      fi
+
+      cat >> "$PIPELINE_WORKSPACE/config.md" << EOF
+
+      # kubernetes environment
+
+          INGRESS_IP:  $INGRESS_IP
+          POSTGRES_IP: $POSTGRES_IP
+      EOF
+    timeoutInMinutes: 5
+    displayName: Get external IPs
+    #enabled: false
+
+  - script: |
+      set -e
+
+      # create test-framework configuration
+      cat > testframework-config.user.yaml <<EOF
+      testframework:
+        default-endpoint:
+          version: "V1"
+          endpoint:
+            host: "$INGRESS_IP"
+            port: 8080
+            protocol: "http"
+        database:
+          default:
+            version: "V1"
+            endpoint:
+              host: "$POSTGRES_IP:5432"
+            username: "oms_user"
+            password: "OmsDB"
+            parameters:
+              dbName: "oms_db"
+      EOF
+
+      # Provide testframework config files in markdown format
+      cat > "$PIPELINE_WORKSPACE/testconfig.md" <<EOF
+      # testframework-config.yaml
+
+      $(cat testframework-config.yaml | sed 's/\(.*\)/    \1/g')
+      
+      # testframework-config.user.yaml
+      
+      $(cat testframework-config.user.yaml | sed 's/\(.*\)/    \1/g')
+      EOF
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/testconfig.md"
+
+      mvn verify | tee "$PIPELINE_WORKSPACE/$LOG_DIR/surefire-output.txt"
+    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)
+    timeoutInMinutes: 60
+    displayName: Excute tests
+    #enabled: false
+  
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit' # Options: JUnit, NUnit, VSTest, xUnit, cTest
+      testResultsFiles: '**/failsafe-reports/TEST-*.xml'
+      searchFolder: '$(Pipeline.Workspace)/$(PROJECT_PATH)'
+      testRunTitle: integration-tests
+      mergeTestResults: true 
+      failTaskOnFailedTests: true
+      publishRunAttachments: true
+    continueOnError: true
+    timeoutInMinutes: 1
+    condition: always()
+    displayName: Publish integration test results
+    #enabled: false
+
+  - script: |
+      # Don't stop on error
+      set +e
+      
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE > get-all.txt
+      kubectl logs $IOM_HELM_RELEASE-iom-0 -n $IOM_KUBERNETES_NAMESPACE -c dbaccount > dbaccount-logs.txt
+      I=0
+      while [ "$I" -lt "$REPLICA_COUNT" ]; do
+        kubectl describe pod $IOM_HELM_RELEASE-iom-$I -n $IOM_KUBERNETES_NAMESPACE > describe-IOM-$I.txt
+        kubectl logs $IOM_HELM_RELEASE-iom-$I -n $IOM_KUBERNETES_NAMESPACE -c iom > iom-$I-logs.txt
+        I=$(expr $I + 1)
+      done
+      tar -cvzf logs.tgz *
+      rm *.txt
+      
+    # Don't stop on error to get as much information as possible.
+    continueOnError: true
+    timeoutInMinutes: 5
+    condition: always()
+    workingDirectory: "$(Pipeline.Workspace)/$(LOG_DIR)"
+    displayName: "Collect data of IOM"
+    #enabled: false
+
+  - publish: "$(Pipeline.Workspace)/$(LOG_DIR)"
+    artifact: iom-logs
+    # Don't stop on error to get as much information as possible.   
+    continueOnError: true
+    timeoutInMinutes: 2
+    displayName: "Publish IOM data"
+    condition: always()
+    #enabled: false
+
+  - script: |
+      set -e
+
+      cat > "$PIPELINE_WORKSPACE/kubernetes.md" <<EOF
+      # Kubernetes status of namespace $IOM_KUBERNETES_NAMESPACE
+      Helm release is **${IOM_HELM_RELEASE}**.
+      
+      EOF
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/kubernetes.md"
+
+    # Don't stop on error to get as much information as possible.
+    continueOnError: true
+    timeoutInMinutes: 2
+    displayName: "Provide status of IOM"
+    condition: always()
+    #enabled: false
+
+  - script: |
+      set -e
+
+      # Check restart-count of all pods of Helm release $IOM_HELM_RELEASE in namespace $IOM_KUBERNETES_NAMESPACE.
+      kubectl get pods -n $IOM_KUBERNETES_NAMESPACE -lapp.kubernetes.io/instance=$IOM_HELM_RELEASE -o jsonpath={..restartCount} |
+        tr ' ' '\n' | while read RESTART_COUNT; do
+        if [ "$RESTART_COUNT" != '0' ]; then
+          echo "##[error] restart detected"
+          exit 1
+        fi
+      done
+    timeoutInMinutes: 2
+    displayName: "Check restart of pods"
+    #enabled: false
+
+    ##############################################################################
+    # Provide images.
+    ##############################################################################
+
+  - script: |
+      set -e
+
+      # Set IS_RELEASE_BUILD=(true|false)
+      # Set IS_PRIVATE_BRANCH=(true|false)
+      # Both variables are used to control process of image publication:
+      #  - Images from private branches are not published at all, applying the according naming rules.
+      #  - Images from public branches will be published, applying the according naming rules.
+
+      # Publishing artifacts is only allowed by branches, that are matching <branchesForPublication>.
+      if echo "$BUILD_SOURCEBRANCH" | grep -q '${{ parameters.branchesForPublication }}'; then
+        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]false'
+      else
+        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]true'
+      fi
+
+      if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
+        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]false'
+      else
+        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]true'
+      fi
+      cat >> "$PIPELINE_WORKSPACE/config.md" <<EOF
+
+      # release information
+    
+          IS_PRIVATE_BRANCH: $IS_PRIVATE_BRANCH
+          IS_RELEASE_BUILD: $IS_RELEASE_BUILD
+      EOF
+    timeoutInMinutes: 1
+    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)
+    displayName: "Get info for publication of images"
+    #enabled false
+
+  - task: Docker@2
+    inputs:
+      command: login
+      containerRegistry: ${{ parameters.acrServiceConnection }}
+    timeoutInMinutes: 1
+    condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH,false))
+    displayName: Login into project ACR
+    #enabled: false
+    
+  - script: |
+      set -e
+
+      eval $(minikube -p minikube docker-env)
+      PROVIDED_IMAGE=${{ parameters.acr }}/$(cat $PIPELINE_WORKSPACE/project-image-name.txt):$(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
+      docker tag "$(cat $PIPELINE_WORKSPACE/project-image-name.txt):$(cat $PIPELINE_WORKSPACE/project-image-tag.txt)" $PROVIDED_IMAGE
+      docker push $PROVIDED_IMAGE
+
+      cat > $PIPELINE_WORKSPACE/docker-image.md <<EOF
+      # Provided Docker image
+          $PROVIDED_IMAGE
+      EOF
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/docker-image.md"
+
+    timeoutInMinutes: 5
+    condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH,false))
+    displayName: "Publish project image"
+    #enabled: false
+
+  - script: |
+      set -e
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config.md"
+    timeoutInMinutes: 1
+    condition: always()
+    continueOnError: true
+    displayName: "Provide pipeline configuration"
+    #enabled: false
+  
+    ##############################################################################
+    # Cleanup
+    ##############################################################################
+
+  - script: |
+      minikube delete --all
+    timeoutInMinutes: 5
+    displayName: Cleanup Minikube
+    condition: always()
