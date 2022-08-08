@@ -113,7 +113,6 @@ jobs:
   ############################################################################
 
   - script: |
-      set -x
       set -e
       
       if [ -z "${{ parameters.dockerRepoIOMServiceConnection }}" ]; then
@@ -178,7 +177,7 @@ jobs:
     #enabled: false
 
   - script: |
-      set -e
+      set -ex
 
       # Determine IOM version, requested by IOM project.
       IOM_VERSION=$(mvn help:evaluate -Dexpression=iom.version -q -DforceStdout | tail -1)
