@@ -47,8 +47,9 @@ parameters:
 - name: branchesForPublication
   type: string
   default: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
-  
-job: CI
+
+jobs:
+- job: CI
   pool: '${{ parameters.agentPool }}'
   continueOnError: false
   timeoutInMinutes: 300
