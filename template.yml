@@ -48,9 +48,7 @@ parameters:
   type: string
   default: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
   
-jobs:
-
-- job: CI
+job: CI
   pool: '${{ parameters.agentPool }}'
   continueOnError: false
   timeoutInMinutes: 300
