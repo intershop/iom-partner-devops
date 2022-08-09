@@ -195,7 +195,7 @@ jobs:
       sudo apt install -y curl maven
     timeoutInMinutes: 3
     displayName: "Install tools"
-    enabled: false
+    #enabled: false
 
   - script: |
       set -e
@@ -250,7 +250,7 @@ jobs:
       cacheHitVar: MINIKUBE_CACHE_HIT
     timeoutInMinutes: 5
     displayName: "Create/restore minikube installation"
-    enabled: false
+    #enabled: false
   
   - task: Cache@2
     inputs:
@@ -275,13 +275,13 @@ jobs:
     timeoutInMinutes: 5
     displayName: Install minikube
     condition: and(succeeded(), eq(variables.MINIKUBE_CACHE_HIT, false))
-    enabled: false
+    #enabled: false
 
   - script:
       echo "##vso[task.setvariable variable=PATH;]$PIPELINE_WORKSPACE/$MINIKUBE_INSTALL_DIR:$PATH"
     timeoutInMinutes: 1
     displayName: Set PATH
-    enabled: false
+    #enabled: false
     
   - task: JavaToolInstaller@0
     inputs:
