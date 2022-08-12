@@ -88,11 +88,8 @@ jobs:
     # Std env. variable, that is automatically used by mvn.
     MAVEN_OPTS: "-Dmaven.repo.local=$(Pipeline.Workspace)/$(M2_LOCAL_REPO)"
     
-    # TODO: minikube should be pre-installed. MINIKUBE_URL and MINIKUBE_INSTALL_DIR should be removed.
-    MINIKUBE_URL: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-    MINIKUBE_INSTALL_DIR: minikube
     # MINIKUBE_HOME is defining where minikube stores its data .
-    MINIKUBE_HOME: $(Pipeline.Workspace)/$(MINIKUBE_INSTALL_DIR)
+    MINIKUBE_HOME: $(Pipeline.Workspace)/minikube
     
     # Directory, where to checkout project.
     PROJECT_PATH: project
@@ -163,7 +160,6 @@ jobs:
           HELM_VERSION: $HELM_VERSION
           IOM_HELM_VERSION: $IOM_HELM_VERSION
           IOM_HELM_URL: $IOM_HELM_URL
-          MINIKUBE_URL: $MINIKUBE_URL
           IOM_HELM_RELEASE: $IOM_HELM_RELEASE
           IOM_KUBERNETES_NAMESPACE: $IOM_KUBERNETES_NAMESPACE
           REPLICA_COUNT: $REPLICA_COUNT
@@ -186,15 +182,6 @@ jobs:
     clean: true
     timeoutInMinutes: 5
     displayName: "Checkout IOM project @$(Build.SourceBranchName)"
-    #enabled: false
-
-  - script: |
-      set -e
-      
-      sudo apt update
-      sudo apt install -y curl maven
-    timeoutInMinutes: 3
-    displayName: "Install tools"
     #enabled: false
 
   - script: |
@@ -246,10 +233,10 @@ jobs:
   - task: Cache@2
     inputs:
       key: 'minikube | "$(IOM_VERSION)" | "$(PROJECT_VERSION)"'
-      path: "$(Pipeline.Workspace)/$(MINIKUBE_INSTALL_DIR)"
+      path: "$(MINIKUBE_HOME)"
       cacheHitVar: MINIKUBE_CACHE_HIT
     timeoutInMinutes: 5
-    displayName: "Create/restore minikube installation"
+    displayName: "Create/restore minikube data"
     #enabled: false
   
   - task: Cache@2
@@ -261,28 +248,6 @@ jobs:
     displayName: "Create/restore local maven cache"
     #enabled: false
 
-  - script: |
-      set -e
-
-      # Download minikube.
-      mkdir "$MINIKUBE_INSTALL_DIR"
-      cd "$MINIKUBE_INSTALL_DIR"
-      curl -LO "$MINIKUBE_URL"
-      # Install minikube.
-      chmod +x $(ls | head -n 1)
-      ln -s $(ls | head -n 1) minikube
-    workingDirectory: $(Pipeline.Workspace)
-    timeoutInMinutes: 5
-    displayName: Install minikube
-    condition: and(succeeded(), eq(variables.MINIKUBE_CACHE_HIT, false))
-    #enabled: false
-
-  - script:
-      echo "##vso[task.setvariable variable=PATH;]$PIPELINE_WORKSPACE/$MINIKUBE_INSTALL_DIR:$PATH"
-    timeoutInMinutes: 1
-    displayName: Set PATH
-    #enabled: false
-    
   - task: JavaToolInstaller@0
     inputs:
       versionSpec: '$(JDK_MAJOR_VERSION)'
