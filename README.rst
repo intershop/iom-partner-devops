@@ -12,6 +12,8 @@ Repository *iom-partner-devops* provides an *Azure DevOps Pipeline* template, wh
 How to use the pipeline template
 --------------------------------
 
+Add a file azure-pipelines.yml to the root-directory of your project with following content. After that, in Azure DevOps a new pipeline has to be created from this file.
+
 .. code-block:: yaml
 
   # Library iom-build-configuration is provided by Intershops DevOps Environment. It provides
