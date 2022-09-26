@@ -287,6 +287,7 @@ jobs:
       # Start minikube
       docker version --format {{.Server.Os}}-{{.Server.Version}}
       minikube start --vm-driver=docker
+      minikube addons enable metrics-server
     displayName: "Start minikube"
     timeoutInMinutes: 5
     #enabled: false
@@ -339,7 +340,7 @@ jobs:
       
       ps -o pid,user,%mem,command ax | sort -b -k3 -r
       free -m
-      kubectl top pod --all-namespaces
+      kubectl top pod --all-namespaces || true
       
       # Create values file.
       cat > values.yaml <<EOF
@@ -422,7 +423,7 @@ jobs:
       sleep $(expr $IMPORT_TESTDATA_TIMEOUT + 60)
       ps -o pid,user,%mem,command ax | sort -b -k3 -r
       free -m
-      kubectl top pod --all-namespaces
+      kubectl top pod --all-namespaces || true
     timeoutInMinutes: 30
     workingDirectory: $(Pipeline.Workspace)
     displayName: "Install IOM in minikube"
