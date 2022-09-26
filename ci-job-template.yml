@@ -286,7 +286,8 @@ jobs:
       
       # Start minikube
       docker version --format {{.Server.Os}}-{{.Server.Version}}
-      minikube start --vm-driver=docker
+      # hardcoded cpu/memory requirements for now
+      minikube start --vm-driver=docker --cpus=max --memory=8000m
     displayName: "Start minikube"
     timeoutInMinutes: 5
     #enabled: false
@@ -336,7 +337,7 @@ jobs:
   
   - script: |
       set -e
-
+            
       # Create values file.
       cat > values.yaml <<EOF
       replicaCount: $REPLICA_COUNT
@@ -369,6 +370,14 @@ jobs:
           enabled: false
         service:
           type: LoadBalancer
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 3000Mi
+          requests:
+            cpu: 1000m
+            memory: 1000Mi
+
       mailhog:
         enabled: true
         probes:
