@@ -336,7 +336,11 @@ jobs:
   
   - script: |
       set -e
-
+      
+      ps -o pid,user,%mem,command ax | sort -b -k3 -r
+      free -m
+      kubectl top pod --all-namespaces
+      
       # Create values file.
       cat > values.yaml <<EOF
       replicaCount: $REPLICA_COUNT
@@ -416,6 +420,9 @@ jobs:
       # Wait for import of test-data + 1 minute.
       # If import of test-data fails, the pod will be restarted.
       sleep $(expr $IMPORT_TESTDATA_TIMEOUT + 60)
+      ps -o pid,user,%mem,command ax | sort -b -k3 -r
+      free -m
+      kubectl top pod --all-namespaces
     timeoutInMinutes: 30
     workingDirectory: $(Pipeline.Workspace)
     displayName: "Install IOM in minikube"
