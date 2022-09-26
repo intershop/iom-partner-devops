@@ -287,9 +287,7 @@ jobs:
       # Start minikube
       docker version --format {{.Server.Os}}-{{.Server.Version}}
       # hardcoded cpu/memory requirements for now
-      minikube config set memory 8000
-      minikube config set cpus max
-      minikube start --vm-driver=docker
+      minikube start --vm-driver=docker --cpus=max --memory=8000m
     displayName: "Start minikube"
     timeoutInMinutes: 5
     #enabled: false
