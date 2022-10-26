@@ -1,11 +1,3 @@
-# see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/resources?view=azure-devops&tabs=schema#define-a-repositories-resource
-resources:
-  repositories:
-    - repository: IOMDevopsRepo
-      type: git
-      name: order-iom-partner-devops
-      ref: develop
-
 trigger:
   branches:
     include:
@@ -14,7 +6,7 @@ trigger:
 # see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#extend-from-a-template
 # see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#use-other-repositories
 extends:
-  template: template.yml@IOMDevopsRepo
+  template: ci-job-template.yml
   parameters:
     agentPool:                          ubuntu-20.4-DS4_v2-adopt-adoptium-jdk-ora
     artifactsFeed:                      order-iom-releases
