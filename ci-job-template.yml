@@ -10,6 +10,11 @@ parameters:
   type: string
   default: ''
 
+  # Has to be set, if the project is placed in a subdirectory.
+- name: projectDir
+  type: string
+  default: ''
+
   # Service connection to the Docker repository, containing the IOM product
   # images.
 - name: dockerRepoIOMServiceConnection
@@ -154,8 +159,16 @@ jobs:
         echo "##[error] Parameter artifactsFeed must not be empty!"
         exit 1
       fi
+
+      # if projectDir is set, an ID is derived of it
+      if [ -z "${{ parameters.projectDir }}" ]; then
+        ID="$(echo "-${{ parameters.projectDir }} | tr '/' '_' " | tr ' ' '_')"
+      else
+        ID=""
+      fi
+      echo "##vso[task.setvariable variable=ID;]$ID"
       
-      cat > "$PIPELINE_WORKSPACE/config.md" <<EOF
+      cat > "$PIPELINE_WORKSPACE/config$ID.md" <<EOF
       # pipeline configuration
 
           HELM_VERSION: $HELM_VERSION
@@ -167,7 +180,8 @@ jobs:
           IMPORT_TESTDATA_TIMEOUT: $IMPORT_TESTDATA_TIMEOUT
           
       # parameters
-      
+
+          projectDir: ${{ parameters.projectDir }}
           dockerRepoIOMServiceConnection: ${{ parameters.dockerRepoIOMServiceConnection }}
           dockerRepoIOM: ${{ parameters.dockerRepoIOM }}
           acrServiceConnection: ${{ parameters.acrServiceConnection }}
@@ -214,7 +228,7 @@ jobs:
       JDK_MAJOR_VERSION="${IOM2JDK[$IOM_MINOR_VERSION]}"
       echo "##vso[task.setvariable variable=JDK_MAJOR_VERSION;]$JDK_MAJOR_VERSION"
 
-      cat >> "$PIPELINE_WORKSPACE/config.md" <<EOF
+      cat >> "$PIPELINE_WORKSPACE/config$ID.md" <<EOF
 
       # project information
     
@@ -227,7 +241,7 @@ jobs:
           JDK_MAJOR_VERSION: $JDK_MAJOR_VERSION
       EOF
     timeoutInMinutes: 1
-    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)
+    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
     displayName: "Get project properties"
     #enabled: false
 
@@ -302,14 +316,14 @@ jobs:
         -Dimage.docker.opts='--docker-opts="--no-cache" --get-image-name="'$PIPELINE_WORKSPACE/project-image-name.txt'" --get-image-tag="'$PIPELINE_WORKSPACE/project-image-tag.txt'"'
     timeoutInMinutes: 30
     displayName: "Create project image"
-    workingDirectory: "$(Pipeline.Workspace)/$(PROJECT_PATH)"
+    workingDirectory: "$(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}"
     #enabled: false
 
   - task: PublishTestResults@2
     inputs:
       testResultsFormat: 'JUnit' # Options: JUnit, NUnit, VSTest, xUnit, cTest
       testResultsFiles: '**/TEST-*.xml'
-      searchFolder: '$(Pipeline.Workspace)/$(PROJECT_PATH)'
+      searchFolder: '$(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}'
       testRunTitle: junit-tests
       mergeTestResults: true 
       failTaskOnFailedTests: true
@@ -403,9 +417,9 @@ jobs:
       EOF
 
       # Convert values file into markdown format.
-      echo '# Helm values' > "$PIPELINE_WORKSPACE/values.md"
-      cat values.yaml | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/values.md"
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/values.md"
+      echo '# Helm values' > "$PIPELINE_WORKSPACE/values$ID.md"
+      cat values.yaml | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/values$ID.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/values$ID.md"
 
       # Start tunnel in background.
       # See https://minikube.sigs.k8s.io/docs/handbook/accessing/#loadbalancer-access
@@ -451,7 +465,7 @@ jobs:
         exit 1
       fi
 
-      cat >> "$PIPELINE_WORKSPACE/config.md" << EOF
+      cat >> "$PIPELINE_WORKSPACE/config$ID.md" << EOF
 
       # kubernetes environment
 
@@ -486,7 +500,7 @@ jobs:
       EOF
 
       # Provide testframework config files in markdown format
-      cat > "$PIPELINE_WORKSPACE/testconfig.md" <<EOF
+      cat > "$PIPELINE_WORKSPACE/testconfig$ID.md" <<EOF
       # testframework-config.yaml
 
       $(cat testframework-config.yaml | sed 's/\(.*\)/    \1/g')
@@ -495,10 +509,10 @@ jobs:
       
       $(cat testframework-config.user.yaml | sed 's/\(.*\)/    \1/g')
       EOF
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/testconfig.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/testconfig$ID.md"
 
       mvn verify | tee "$PIPELINE_WORKSPACE/$LOG_DIR/surefire-output.txt"
-    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)
+    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
     timeoutInMinutes: 60
     displayName: Excute tests
     #enabled: false
@@ -507,7 +521,7 @@ jobs:
     inputs:
       testResultsFormat: 'JUnit' # Options: JUnit, NUnit, VSTest, xUnit, cTest
       testResultsFiles: '**/failsafe-reports/TEST-*.xml'
-      searchFolder: '$(Pipeline.Workspace)/$(PROJECT_PATH)'
+      searchFolder: '$(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}'
       testRunTitle: integration-tests
       mergeTestResults: true 
       failTaskOnFailedTests: true
@@ -553,13 +567,13 @@ jobs:
   - script: |
       set -e
 
-      cat > "$PIPELINE_WORKSPACE/kubernetes.md" <<EOF
+      cat > "$PIPELINE_WORKSPACE/kubernetes$ID.md" <<EOF
       # Kubernetes status of namespace $IOM_KUBERNETES_NAMESPACE
       Helm release is **${IOM_HELM_RELEASE}**.
       
       EOF
-      kubectl get all -n $IOM_KUBERNETES_NAMESPACE | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes.md"
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/kubernetes.md"
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes$ID.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/kubernetes$ID.md"
 
     # Don't stop on error to get as much information as possible.
     continueOnError: true
@@ -608,7 +622,7 @@ jobs:
       else
         echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]true'
       fi
-      cat >> "$PIPELINE_WORKSPACE/config.md" <<EOF
+      cat >> "$PIPELINE_WORKSPACE/config$ID.md" <<EOF
 
       # release information
     
@@ -616,7 +630,7 @@ jobs:
           IS_RELEASE_BUILD: $IS_RELEASE_BUILD
       EOF
     timeoutInMinutes: 1
-    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)
+    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
     displayName: "Get info for publication of images"
     #enabled false
 
@@ -637,11 +651,11 @@ jobs:
       docker tag "$(cat $PIPELINE_WORKSPACE/project-image-name.txt):$(cat $PIPELINE_WORKSPACE/project-image-tag.txt)" $PROVIDED_IMAGE
       docker push $PROVIDED_IMAGE
 
-      cat > $PIPELINE_WORKSPACE/docker-image.md <<EOF
+      cat > $PIPELINE_WORKSPACE/docker-image$ID.md <<EOF
       # Provided Docker image
           $PROVIDED_IMAGE
       EOF
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/docker-image.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/docker-image$ID.md"
 
     timeoutInMinutes: 5
     condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH,false))
@@ -650,7 +664,7 @@ jobs:
 
   - script: |
       set -e
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config$ID.md"
     timeoutInMinutes: 1
     condition: always()
     continueOnError: true
