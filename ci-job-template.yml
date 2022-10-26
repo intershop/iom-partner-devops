@@ -15,6 +15,10 @@ parameters:
   type: string
   default: ''
 
+- name: id
+  type: string
+  default: ''
+  
   # Service connection to the Docker repository, containing the IOM product
   # images.
 - name: dockerRepoIOMServiceConnection
@@ -54,7 +58,7 @@ parameters:
   default: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
 
 jobs:
-- job: CI_${{ parameters.projectDir }}
+- job: CI{{ parameters.id }}
   pool: '${{ parameters.agentPool }}'
   continueOnError: false
   timeoutInMinutes: 300
@@ -160,15 +164,7 @@ jobs:
         exit 1
       fi
 
-      # if projectDir is set, an ID is derived of it
-      if [ ! -z "${{ parameters.projectDir }}" ]; then
-        ID="$(echo "-${{ parameters.projectDir }}" | tr '/' '_' | tr ' ' '_')"
-      else
-        ID=""
-      fi
-      echo "##vso[task.setvariable variable=ID;]$ID"
-      
-      cat > "$PIPELINE_WORKSPACE/config$ID.md" <<EOF
+      cat > "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
       # pipeline configuration
 
           HELM_VERSION: $HELM_VERSION
@@ -228,7 +224,7 @@ jobs:
       JDK_MAJOR_VERSION="${IOM2JDK[$IOM_MINOR_VERSION]}"
       echo "##vso[task.setvariable variable=JDK_MAJOR_VERSION;]$JDK_MAJOR_VERSION"
 
-      cat >> "$PIPELINE_WORKSPACE/config$ID.md" <<EOF
+      cat >> "$PIPELINE_WORKSPACE/config${{ parameters-id }}.md" <<EOF
 
       # project information
     
@@ -417,9 +413,9 @@ jobs:
       EOF
 
       # Convert values file into markdown format.
-      echo '# Helm values' > "$PIPELINE_WORKSPACE/values$ID.md"
-      cat values.yaml | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/values$ID.md"
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/values$ID.md"
+      echo '# Helm values' > "$PIPELINE_WORKSPACE/values${{ parameters.id }}.md"
+      cat values.yaml | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/values${{ parameters.id }}.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/values${{ parameters.id }}.md"
 
       # Start tunnel in background.
       # See https://minikube.sigs.k8s.io/docs/handbook/accessing/#loadbalancer-access
@@ -465,7 +461,7 @@ jobs:
         exit 1
       fi
 
-      cat >> "$PIPELINE_WORKSPACE/config$ID.md" << EOF
+      cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" << EOF
 
       # kubernetes environment
 
@@ -500,7 +496,7 @@ jobs:
       EOF
 
       # Provide testframework config files in markdown format
-      cat > "$PIPELINE_WORKSPACE/testconfig$ID.md" <<EOF
+      cat > "$PIPELINE_WORKSPACE/testconfig${{ parameters.id }}.md" <<EOF
       # testframework-config.yaml
 
       $(cat testframework-config.yaml | sed 's/\(.*\)/    \1/g')
@@ -509,7 +505,7 @@ jobs:
       
       $(cat testframework-config.user.yaml | sed 's/\(.*\)/    \1/g')
       EOF
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/testconfig$ID.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/testconfig${{ parameters.id }}.md"
 
       mvn verify | tee "$PIPELINE_WORKSPACE/$LOG_DIR/surefire-output.txt"
     workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
@@ -567,13 +563,13 @@ jobs:
   - script: |
       set -e
 
-      cat > "$PIPELINE_WORKSPACE/kubernetes$ID.md" <<EOF
+      cat > "$PIPELINE_WORKSPACE/kubernetes${{ parameters.id }}.md" <<EOF
       # Kubernetes status of namespace $IOM_KUBERNETES_NAMESPACE
       Helm release is **${IOM_HELM_RELEASE}**.
       
       EOF
-      kubectl get all -n $IOM_KUBERNETES_NAMESPACE | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes$ID.md"
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/kubernetes$ID.md"
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes${{ parameters.id }}.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/kubernetes${{ parameters.id }}.md"
 
     # Don't stop on error to get as much information as possible.
     continueOnError: true
@@ -622,7 +618,7 @@ jobs:
       else
         echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]true'
       fi
-      cat >> "$PIPELINE_WORKSPACE/config$ID.md" <<EOF
+      cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
 
       # release information
     
@@ -651,11 +647,11 @@ jobs:
       docker tag "$(cat $PIPELINE_WORKSPACE/project-image-name.txt):$(cat $PIPELINE_WORKSPACE/project-image-tag.txt)" $PROVIDED_IMAGE
       docker push $PROVIDED_IMAGE
 
-      cat > $PIPELINE_WORKSPACE/docker-image$ID.md <<EOF
+      cat > $PIPELINE_WORKSPACE/docker-image${{ parameters.id }}.md <<EOF
       # Provided Docker image
           $PROVIDED_IMAGE
       EOF
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/docker-image$ID.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/docker-image${{ parameters.id }}.md"
 
     timeoutInMinutes: 5
     condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH,false))
@@ -664,7 +660,7 @@ jobs:
 
   - script: |
       set -e
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config$ID.md"
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config${{ parameters.id }}.md"
     timeoutInMinutes: 1
     condition: always()
     continueOnError: true
