@@ -161,9 +161,8 @@ jobs:
       fi
 
       # if projectDir is set, an ID is derived of it
-      set -x
-      if [ -z "${{ parameters.projectDir }}" ]; then
-        ID="$(echo "-${{ parameters.projectDir }} | tr '/' '_' " | tr ' ' '_')"
+      if [ ! -z "${{ parameters.projectDir }}" ]; then
+        ID="$(echo "-${{ parameters.projectDir }}" | tr '/' '_' | tr ' ' '_')"
       else
         ID=""
       fi
