@@ -19,6 +19,7 @@ stages:
     - ${{ each entry in parameters.blueprintInstances }}:
       - template: ci-job-template.yml
         parameters:
+          projectDir:                         ci/blueprint-project/1.3.1
           agentPool:                          ubuntu-20.4-DS4_v2-adopt-adoptium-jdk-ora
           artifactsFeed:                      order-iom-releases
           dockerRepoIOMServiceConnection:     order-iom-docker.tools.intershop.com
