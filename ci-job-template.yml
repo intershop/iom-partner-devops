@@ -161,11 +161,13 @@ jobs:
       fi
 
       # if projectDir is set, an ID is derived of it
+      set -x
       if [ -z "${{ parameters.projectDir }}" ]; then
         ID="$(echo "-${{ parameters.projectDir }} | tr '/' '_' " | tr ' ' '_')"
       else
         ID=""
       fi
+      exit 1
       echo "##vso[task.setvariable variable=ID;]$ID"
       
       cat > "$PIPELINE_WORKSPACE/config$ID.md" <<EOF
