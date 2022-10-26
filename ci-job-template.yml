@@ -54,7 +54,7 @@ parameters:
   default: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
 
 jobs:
-- job: CI
+- job: CI_${{ parameters.projectDir }}
   pool: '${{ parameters.agentPool }}'
   continueOnError: false
   timeoutInMinutes: 300
