@@ -7,8 +7,6 @@ parameters:
       artifactsFeed: order-iom-releases
     - dir:           ci/blueprint-project/1.3.1
       artifactsFeed: order-iom-releases
-    - dir:           ci/blueprint-project/1.3.0
-      artifactsFeed: order-iom-releases
 
 trigger:
   branches:
