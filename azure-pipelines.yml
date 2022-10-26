@@ -1,3 +1,15 @@
+# see https://developercommunity.visualstudio.com/t/variables-in-yaml-pipeline-are-not-allowing-to-def/812728
+parameters:
+- name: blueprintInstances
+  type: object
+  default:
+    - dir:           ci/blueprint-project/1.3.1
+      artifactsFeed: order-iom-releases
+#    - dir: "develop"
+#      artifactsFeed: "aaa"
+#    - dir: "1.1.0"
+#      artifactsFeed: "bbb"
+
 trigger:
   branches:
     include:
