@@ -82,11 +82,6 @@ jobs:
     DBACCOUNT_IMAGE_NAME: iom-dbaccount
     DBACCOUNT_IMAGE_TAG: 1.5.0
     
-    # JDK version, depending on IOM version (space before \ is required).
-    IOM2JDK:      "[4.2]=17 \
-                   [4.1]=11 \
-                   [4.0]=11"
-
     UBUNTU_MIRROR: http://azure.archive.ubuntu.com/ubuntu/
     
     #---------------------------------------------------------------------------
@@ -219,9 +214,9 @@ jobs:
       fi
 
       # Determine JDK version
-      declare -A IOM2JDK=( $(IOM2JDK) )
-
-      JDK_MAJOR_VERSION="${IOM2JDK[$IOM_MINOR_VERSION]}"
+      # TODO: xml_grep is not able to understand the expression /plugin[artifactId="maven-compiler-plugin"],
+      # which would be required to select the jdk version really the right way.
+      JDK_MAJOR_VERSION=$(xml_grep --text_only //plugins/plugin/configuration/release pom.xml)
       echo "##vso[task.setvariable variable=JDK_MAJOR_VERSION;]$JDK_MAJOR_VERSION"
 
       cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
