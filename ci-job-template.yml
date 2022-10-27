@@ -163,7 +163,7 @@ jobs:
         exit 1
       fi
       if [ ! -z "${{ parameters.id }}" ]; then
-        if echo "${{ parameters.id }}" | grep -qv '[^a-zA-Z0-9_]'; then
+        if echo "${{ parameters.id }}" | grep -q '[^a-zA-Z0-9_]'; then
           echo "##[error] Parameter id has to consist of characters, numbers and _ only!"
           exit 1
         fi
