@@ -558,7 +558,7 @@ jobs:
     #enabled: false
 
   - publish: "$(Pipeline.Workspace)/$(LOG_DIR)"
-    artifact: iom-logs
+    artifact: iom-logs${{ parameters.id }}
     # Don't stop on error to get as much information as possible.   
     continueOnError: true
     timeoutInMinutes: 2
