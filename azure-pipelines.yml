@@ -10,6 +10,16 @@ parameters:
       artifactsFeed: order-iom-releases
       id:            _1_3_1
 
+# Library iom-build-configuration is provided by Intershops DevOps Environment. It provides
+# the following variables:
+#  - BUILD_AGENT_POOL:                  name of the build agent pool
+#  - REPO_SERVICE_CONNECTION:           service connection to the customer ACR
+#  - REPO_PATH:                         host name and path of the customer ACR
+#  - INTERSHOP_REPO_SERVICE_CONNECTION: service connection to the Intershop container registry
+#  - INTERSHOP_REPO_PATH:               host name and path of the Intershop container registry
+variables:
+- group: iom-build-configuration
+
 trigger:
   branches:
     include:
@@ -24,11 +34,11 @@ stages:
       - template: ci-job-template.yml
         parameters:
           projectDir:                         ${{ entry.dir }}
-          agentPool:                          ubuntu-20.4-DS4_v2-adopt-adoptium-jdk-ora
+          agentPool:                          $(BUILD_AGENT_POOL)
           artifactsFeed:                      ${{ entry.artifactsFeed }}
-          dockerRepoIOMServiceConnection:     order-iom-docker.tools.intershop.com
-          dockerRepoIOM:                      docker.tools.intershop.com/iom/intershophub
-          acrServiceConnection:               order-iomInternalACR-ISH-ENG-IOM
-          acr:                                iominternalacr.azurecr.io
+          dockerRepoIOMServiceConnection:     $(INTERSHOP_REPO_SERVICE_CONNECTION)
+          dockerRepoIOM:                      $(INTERSHOP_REPO_PATH)
+          acrServiceConnection:               $(REPO_SERVICE_CONNECTION)
+          acr:                                $(REPO_PATH)
           projectEnvName:                     dev
           id:                                 ${{ entry.id }}
