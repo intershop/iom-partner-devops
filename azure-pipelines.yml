@@ -4,7 +4,7 @@ parameters:
   type: object
   default:
     - dir:           ci/blueprint-project/develop
-      artifactsFeed: order-iom-releases
+      artifactsFeed: iom-maven-artifacts
       id:            _develop
     - dir:           ci/blueprint-project/1.3.1
       artifactsFeed: order-iom-releases

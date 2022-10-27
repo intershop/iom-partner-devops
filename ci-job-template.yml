@@ -15,6 +15,10 @@ parameters:
   type: string
   default: ''
 
+  # Has to be set, if ci-job-template.yml is used in a look, for two reasons:
+  # - to make each job-name unique
+  # - to extend names of files, which are published in extensions
+  # for this reason id must consitst of characters, numbers and _ only.
 - name: id
   type: string
   default: ''
@@ -158,26 +162,33 @@ jobs:
         echo "##[error] Parameter artifactsFeed must not be empty!"
         exit 1
       fi
+      if [ ! -z "${{ parameters.id }}" ]; then
+        if echo "${{ parameters.id }}" | grep -qv '[^a-zA-Z0-9_]'; then
+          echo "##[error] Parameter id has to consist of characters, numbers and _ only!"
+          exit 1
+        fi
+      fi
 
       cat > "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
       # pipeline configuration
 
-          HELM_VERSION: $HELM_VERSION
-          IOM_HELM_VERSION: $IOM_HELM_VERSION
-          IOM_HELM_URL: $IOM_HELM_URL
-          IOM_HELM_RELEASE: $IOM_HELM_RELEASE
-          IOM_KUBERNETES_NAMESPACE: $IOM_KUBERNETES_NAMESPACE
-          REPLICA_COUNT: $REPLICA_COUNT
-          IMPORT_TESTDATA_TIMEOUT: $IMPORT_TESTDATA_TIMEOUT
+          HELM_VERSION:                   $HELM_VERSION
+          IOM_HELM_VERSION:               $IOM_HELM_VERSION
+          IOM_HELM_URL:                   $IOM_HELM_URL
+          IOM_HELM_RELEASE:               $IOM_HELM_RELEASE
+          IOM_KUBERNETES_NAMESPACE:       $IOM_KUBERNETES_NAMESPACE
+          REPLICA_COUNT:                  $REPLICA_COUNT
+          IMPORT_TESTDATA_TIMEOUT:        $IMPORT_TESTDATA_TIMEOUT
           
       # parameters
 
-          projectDir: ${{ parameters.projectDir }}
+          id:                             ${{ parameters.id }}
+          projectDir:                     ${{ parameters.projectDir }}
           dockerRepoIOMServiceConnection: ${{ parameters.dockerRepoIOMServiceConnection }}
-          dockerRepoIOM: ${{ parameters.dockerRepoIOM }}
-          acrServiceConnection: ${{ parameters.acrServiceConnection }}
-          acr: ${{ parameters.acr }}
-          artifactsFeed: ${{ parameters.artifactsFeed }}
+          dockerRepoIOM:                  ${{ parameters.dockerRepoIOM }}
+          acrServiceConnection:           ${{ parameters.acrServiceConnection }}
+          acr:                            ${{ parameters.acr }}
+          artifactsFeed:                  ${{ parameters.artifactsFeed }}
       EOF
     timeoutInMinutes: 1
     displayName: "Check parameters"
