@@ -4,6 +4,26 @@
 ################################################################################
 parameters:
 
+  # Has to be set, if ci-job-template.yml is used in a loop, for two reasons:
+  # - to make each job-name unique,
+  # - to extend names of files, which are published in extensions.
+  # For this reason id must consitst of characters, numbers and _ only.
+- name: id
+  type: string
+  default: ''
+  
+  # Enables an easy integration with custom jobs. The parameter will be passed
+  # as is to the 'dependsOn' property of the job.
+- name: dependsOn
+  type: string
+  default: ''
+
+  # Enables an easy integration with custom jobs. The parameter will be passed
+  # as is to the 'condition' property of the job.
+- name: condition
+  type: string
+  default: ''
+
   # Every partner has it's own agent-pool, therefore the name of the pool cannot
   # be hardcoded in the pipeline template.
 - name: agentPool
@@ -15,14 +35,6 @@ parameters:
   type: string
   default: ''
 
-  # Has to be set, if ci-job-template.yml is used in a look, for two reasons:
-  # - to make each job-name unique
-  # - to extend names of files, which are published in extensions
-  # for this reason id must consitst of characters, numbers and _ only.
-- name: id
-  type: string
-  default: ''
-  
   # Service connection to the Docker repository, containing the IOM product
   # images.
 - name: dockerRepoIOMServiceConnection
@@ -64,6 +76,8 @@ parameters:
 jobs:
 - job: CI${{ parameters.id }}
   pool: '${{ parameters.agentPool }}'
+  dependsOn: ${{ parameters.dependsOn }}
+  condition: ${{ parameters.condition }}
   continueOnError: false
   timeoutInMinutes: 300
   workspace:
@@ -234,13 +248,13 @@ jobs:
 
       # project information
     
-          IOM_VERSION: $IOM_VERSION
-          IOM_MINOR_VERSION: $IOM_MINOR_VERSION
-          PROJECT_VERSION: $PROJECT_VERSION
+          IOM_VERSION:                    $IOM_VERSION
+          IOM_MINOR_VERSION:              $IOM_MINOR_VERSION
+          PROJECT_VERSION:                $PROJECT_VERSION
 
       # build environment
         
-          JDK_MAJOR_VERSION: $JDK_MAJOR_VERSION
+          JDK_MAJOR_VERSION:              $JDK_MAJOR_VERSION
       EOF
     timeoutInMinutes: 1
     workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
@@ -471,8 +485,8 @@ jobs:
 
       # kubernetes environment
 
-          INGRESS_IP:  $INGRESS_IP
-          POSTGRES_IP: $POSTGRES_IP
+          INGRESS_IP:                     $INGRESS_IP
+          POSTGRES_IP:                    $POSTGRES_IP
       EOF
     timeoutInMinutes: 5
     displayName: Get external IPs
@@ -628,8 +642,8 @@ jobs:
 
       # release information
     
-          IS_PRIVATE_BRANCH: $IS_PRIVATE_BRANCH
-          IS_RELEASE_BUILD: $IS_RELEASE_BUILD
+          IS_PRIVATE_BRANCH:              $IS_PRIVATE_BRANCH
+          IS_RELEASE_BUILD:               $IS_RELEASE_BUILD
       EOF
     timeoutInMinutes: 1
     workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
