@@ -1,0 +1,57 @@
+# see https://developercommunity.visualstudio.com/t/variables-in-yaml-pipeline-are-not-allowing-to-def/812728
+parameters:
+- name: blueprintInstances
+  type: object
+  default:
+    - repository:    iom-blueprint-project-develop
+      artifactsFeed: iom-maven-artifacts
+      id:            _develop
+    - repository:    iom-blueprint-project-1-3-1
+      artifactsFeed: order-iom-releases
+      id:            _1_3_1
+
+# Library iom-build-configuration is provided by Intershops DevOps Environment. It provides
+# the following variables:
+#  - BUILD_AGENT_POOL:                  name of the build agent pool
+#  - REPO_SERVICE_CONNECTION:           service connection to the customer ACR
+#  - REPO_PATH:                         host name and path of the customer ACR
+#  - INTERSHOP_REPO_SERVICE_CONNECTION: service connection to the Intershop container registry
+#  - INTERSHOP_REPO_PATH:               host name and path of the Intershop container registry
+variables:
+- group: iom-build-configuration
+
+resources:
+  repositories:
+    - repository: iom-blueprint-project-develop
+      type:       github
+      endpoint:   github-intershop
+      name:       intershop/iom-blueprint-project
+      ref:        develop
+    - repository: iom-blueprint-project-1-3-1
+      type:       github
+      endpoint:   github-intershop
+      name:       intershop/iom-blueprint-project
+      ref:        refs/tags/1.3.1
+
+trigger:
+  branches:
+    include:
+      - '*'
+
+# see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#extend-from-a-template
+# see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#use-other-repositories
+stages:
+- stage: CI
+  jobs:
+    - ${{ each entry in parameters.blueprintInstances }}:
+      - template: ci-job-template.yml
+        parameters:
+          repository:                         ${{ entry.repository }}
+          agentPool:                          $(BUILD_AGENT_POOL)
+          artifactsFeed:                      ${{ entry.artifactsFeed }}
+          dockerRepoIOMServiceConnection:     $(INTERSHOP_REPO_SERVICE_CONNECTION)
+          dockerRepoIOM:                      $(INTERSHOP_REPO_PATH)
+          acrServiceConnection:               $(REPO_SERVICE_CONNECTION)
+          acr:                                $(REPO_PATH)
+          projectEnvName:                     dev
+          id:                                 ${{ entry.id }}
