@@ -8,7 +8,7 @@ parameters:
       artifactsFeed: iom-maven-artifacts
       id:            _develop
     - dir:           blueprint-project
-      repository:    iom-blueprint-project-develop
+      repository:    iom-blueprint-project-1-3-1
       artifactsFeed: order-iom-releases
       id:            _1_3_1
 
@@ -29,11 +29,11 @@ resources:
       endpoint:   github-intershop
       name:       intershop/iom-blueprint-project
       ref:        develop
-    #- repository: iom-blueprint-project-1-3-1
-    #  type:       github
-    #  endpoint:   github-intershop
-    #  name:       intershop/iom-blueprint-project
-    #  ref:        tags/1.3.1
+    - repository: iom-blueprint-project-1-3-1
+      type:       github
+      endpoint:   github-intershop
+      name:       intershop/iom-blueprint-project
+      ref:        refs/tags/1.3.1
 
 trigger:
   branches:
