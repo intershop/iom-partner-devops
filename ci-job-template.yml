@@ -35,6 +35,11 @@ parameters:
   type: string
   default: ''
 
+  # Has to be set, if the project is located in a remote repository.
+- name: repository
+  type: string
+  default: self
+  
   # Service connection to the Docker repository, containing the IOM product
   # images.
 - name: dockerRepoIOMServiceConnection
@@ -208,7 +213,7 @@ jobs:
     displayName: "Check parameters"
     #enabled: false
 
-  - checkout: self
+  - checkout: ${{ parameters.repository }}
     path: $(PROJECT_PATH)
     clean: true
     timeoutInMinutes: 5
