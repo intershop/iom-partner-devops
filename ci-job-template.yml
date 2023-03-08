@@ -39,6 +39,9 @@ parameters:
 - name: repository
   type: string
   default: self
+
+- name: preHookTemplate
+  type: string
   
   # Service connection to the Docker repository, containing the IOM product
   # images.
@@ -154,7 +157,7 @@ jobs:
 
   steps:
 
-  - template: preHookTemplate.yml
+  - template: ${{ parameters.preHookTemplate }}
 
   ############################################################################
   # Prepare CI environment.
