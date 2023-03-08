@@ -45,6 +45,11 @@ parameters:
   type: string
   default: ''
   
+  # Name of template to be executed after all major steps of current job.
+- name: postHookTemplate
+  type: string
+  default: ''
+  
   # Service connection to the Docker repository, containing the IOM product
   # images.
 - name: dockerRepoIOMServiceConnection
@@ -159,9 +164,6 @@ jobs:
 
   steps:
 
-  - ${{ if not(eq(parameters.preHookTemplate, '')) }}:
-    - template: ${{ parameters.preHookTemplate }}
-
   ############################################################################
   # Prepare CI environment.
   ############################################################################
@@ -220,6 +222,9 @@ jobs:
     timeoutInMinutes: 1
     displayName: "Check parameters"
     #enabled: false
+
+  - ${{ if not(eq(parameters.preHookTemplate, '')) }}:
+    - template: ${{ parameters.preHookTemplate }}
 
   - checkout: ${{ parameters.repository }}
     path: $(PROJECT_PATH)
@@ -312,6 +317,9 @@ jobs:
     displayName: "Maven authenticate"
     #enabled: false
 
+  - ${{ if not(eq(parameters.postHookTemplate, '')) }}:
+    - template: ${{ parameters.postHookTemplate }}
+  
     ##############################################################################
     # Create Docker image.
     ##############################################################################
@@ -699,7 +707,7 @@ jobs:
     continueOnError: true
     displayName: "Provide pipeline configuration"
     #enabled: false
-  
+
     ##############################################################################
     # Cleanup
     ##############################################################################
