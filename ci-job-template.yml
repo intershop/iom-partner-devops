@@ -40,8 +40,10 @@ parameters:
   type: string
   default: self
 
+  # Name of template to be executed before all major steps of current job.
 - name: preHookTemplate
   type: string
+  default: ''
   
   # Service connection to the Docker repository, containing the IOM product
   # images.
@@ -157,7 +159,8 @@ jobs:
 
   steps:
 
-  - template: ${{ parameters.preHookTemplate }}
+  - ${{ if not(eq(parameters.preHookTemplate, '')) }}:
+    - template: ${{ parameters.preHookTemplate }}
 
   ############################################################################
   # Prepare CI environment.
