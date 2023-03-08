@@ -65,6 +65,21 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
           acrServiceConnection:               $(REPO_SERVICE_CONNECTION)
           acr:                                $(REPO_PATH)
 
+          # You may need to inject additional steps into the current job. This can be done by
+          # definining additional templates, which are executed before and after the main steps
+          # of the current job. Just create according template files and pass their name to the
+          # following paramaters. '@self' is important, otherwise the templates would be expected
+          # at the same location as ci-job-template.yml.
+          #preHookTemplate:  <filename>@self
+          #postHookTemplate: <filename>@self
+          #
+          # This is a very simple example of a pre- or postHookTemplate:
+          # 
+          # steps:
+          # - script: |
+          #     echo "Hello world"
+          #   displayName: "hello world"
+        
       # The following block shows a very simple example, how to extend the DevOps pipeline by a custom
       # job. Alternatively one or more stages could be added, see:
       # https://docs.microsoft.com/en-us/azure/devops/pipelines/process/stages?view=azure-devops
