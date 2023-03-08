@@ -10,7 +10,7 @@ parameters:
       artifactsFeed: order-iom-releases
       id:            _1_3_1
     - repository:    iom-blueprint-project-1-4-0
-      artifactsFeed: order-iom-releases
+      artifactsFeed: iom-maven-artifacts
       id:            _1_4_0
 
 # Library iom-build-configuration is provided by Intershops DevOps Environment. It provides
