@@ -317,9 +317,6 @@ jobs:
     displayName: "Maven authenticate"
     #enabled: false
 
-  - ${{ if not(eq(parameters.postHookTemplate, '')) }}:
-    - template: ${{ parameters.postHookTemplate }}
-  
     ##############################################################################
     # Create Docker image.
     ##############################################################################
@@ -708,6 +705,9 @@ jobs:
     displayName: "Provide pipeline configuration"
     #enabled: false
 
+  - ${{ if not(eq(parameters.postHookTemplate, '')) }}:
+    - template: ${{ parameters.postHookTemplate }}
+  
     ##############################################################################
     # Cleanup
     ##############################################################################

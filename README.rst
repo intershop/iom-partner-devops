@@ -48,6 +48,18 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
     jobs:
       - template: ci-job-template.yml@iom-partner-devops
         parameters:
+          # You may need to inject additional steps into the current job. This can be done by
+          # definining additional templates, which are executed before and after the main steps
+          # of the current job. Just create according template files and pass their name to the
+          # following paramaters. '@self' is important, otherwise the templates would be expected
+          # at the same location as ci-job-template.yml.
+          #preHookTemplate:  <filename>@self
+          #postHookTemplate: <filename>@self
+          # A pre- or postHookTemplate has to look like this:
+          # steps:
+          # - <step, e.g. script, task, ...>
+          # - ...
+        
           # You have to set here the name of the environment, that is providing the CI specific configuration! 
           projectEnvName:                     dev
 
