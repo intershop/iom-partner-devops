@@ -673,7 +673,7 @@ jobs:
       command: login
       containerRegistry: ${{ parameters.acrServiceConnection }}
     timeoutInMinutes: 1
-    condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH,false))
+    condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH, 'false'))
     displayName: Login into project ACR
     #enabled: false
     
@@ -692,7 +692,7 @@ jobs:
       echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/docker-image${{ parameters.id }}.md"
 
     timeoutInMinutes: 5
-    condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH,false))
+    condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH, 'false'))
     displayName: "Publish project image"
     #enabled: false
 
