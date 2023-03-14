@@ -161,6 +161,7 @@ jobs:
     POSTGRES_IP:        ""
     IS_RELEASE_BUILD:   false
     IS_PRIVATE_BRANCH:  true
+    IMAGE_VERSION_SUFFIX:   ""
 
   steps:
 
@@ -256,6 +257,11 @@ jobs:
         exit 1
       fi
 
+      # Set image suffix for unique snapshot tags
+      if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
+        echo '##vso[task.setvariable variable=IMAGE_VERSION_SUFFIX;].$BUILD_BUILDID'
+      fi
+
       # Determine JDK version
       # TODO: xml_grep is not able to understand the expression /plugin[artifactId="maven-compiler-plugin"],
       # which would be required to select the jdk version really the right way.
@@ -269,6 +275,7 @@ jobs:
           IOM_VERSION:                    $IOM_VERSION
           IOM_MINOR_VERSION:              $IOM_MINOR_VERSION
           PROJECT_VERSION:                $PROJECT_VERSION
+          IMAGE_VERSION_SUFFIX:           $IMAGE_VERSION_SUFFIX
 
       # build environment
         
