@@ -353,6 +353,7 @@ jobs:
       eval $(minikube -p minikube docker-env)
       mvn clean package -Pdocker \
         -Dubuntu.mirror.x64=$UBUNTU_MIRROR \
+        -Dimage.version.suffix=$IMAGE_VERSION_SUFFIX \
         -Dintershop.docker.repo=${{ parameters.dockerRepoIOM }} \
         -Dimage.docker.opts='--docker-opts="--no-cache" --get-image-name="'$PIPELINE_WORKSPACE/project-image-name.txt'" --get-image-tag="'$PIPELINE_WORKSPACE/project-image-tag.txt'"'
     timeoutInMinutes: 30
