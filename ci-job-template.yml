@@ -549,6 +549,15 @@ jobs:
 
   - script: |
       set -e
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config${{ parameters.id }}.md"
+    timeoutInMinutes: 1
+    condition: always()
+    continueOnError: true
+    displayName: "Provide pipeline configuration"
+    #enabled: false
+
+  - script: |
+      set -e
 
       # create test-framework configuration
       cat > testframework-config.user.yaml <<EOF
@@ -704,15 +713,6 @@ jobs:
     timeoutInMinutes: 5
     condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH, 'false'))
     displayName: "Publish project image"
-    #enabled: false
-
-  - script: |
-      set -e
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config${{ parameters.id }}.md"
-    timeoutInMinutes: 1
-    condition: always()
-    continueOnError: true
-    displayName: "Provide pipeline configuration"
     #enabled: false
 
   - ${{ if not(eq(parameters.postHookTemplate, '')) }}:
