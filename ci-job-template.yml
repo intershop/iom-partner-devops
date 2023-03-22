@@ -40,6 +40,11 @@ parameters:
   type: string
   default: self
 
+  # If set to true, tags of SNAPSHOT images will be extended with an unique id.
+- name: uniqueSnapshotTags
+  type: boolean
+  default: false
+
   # Name of template to be executed before all major steps of current job.
 - name: preHookTemplate
   type: string
@@ -146,11 +151,16 @@ jobs:
 
     # Timeout for import of test-data.
     IMPORT_TESTDATA_TIMEOUT: 300
+
+    # Unique suffix that might be added to tags of SNAPSHOTs.
+    IMAGE_VERSION_SUFFIX: ""
     
     #---------------------------------------------------------------------------
     # Runtime variables to control the CI process.
     #---------------------------------------------------------------------------
 
+    # Publishing artifacts is only allowed by branches, that are matching <branchesForPublication>.
+    IS_PRIVATE_BRANCH:  true
     IOM_VERSION:        ""
     IOM_MINOR_VERSION:  ""
     JDK_MAJOR_VERSION:  ""
@@ -160,8 +170,6 @@ jobs:
     INGRESS_IP:         ""
     POSTGRES_IP:        ""
     IS_RELEASE_BUILD:   false
-    IS_PRIVATE_BRANCH:  true
-    IMAGE_VERSION_SUFFIX:   ""
 
   steps:
 
@@ -257,16 +265,32 @@ jobs:
         exit 1
       fi
 
-      # Set image suffix for unique snapshot tags
-      if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
-        echo "##vso[task.setvariable variable=IMAGE_VERSION_SUFFIX;].$BUILD_BUILDID"
-      fi
-
       # Determine JDK version
       # TODO: xml_grep is not able to understand the expression /plugin[artifactId="maven-compiler-plugin"],
       # which would be required to select the jdk version really the right way.
       JDK_MAJOR_VERSION=$(xml_grep --text_only //plugins/plugin/configuration/release pom.xml)
       echo "##vso[task.setvariable variable=JDK_MAJOR_VERSION;]$JDK_MAJOR_VERSION"
+
+      # Determine release related information
+      if echo "$BUILD_SOURCEBRANCH" | grep -q '${{ parameters.branchesForPublication }}'; then
+        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]false'
+      else
+        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]true'
+      fi
+
+      if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
+        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]false'
+      else
+        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]true'
+      fi
+
+      set -x
+      # Set image suffix for unique snapshot tags
+      if [ "$IS_RELEASE_BUILD" = 'false' -a "${{ parameters.uniqueSnapshotTags}}" = 'true' ]; then
+        IMAGE_VERSION_SUFFIX=".$BUILD_BUILDID"
+        echo "##vso[task.setvariable variable=IMAGE_VERSION_SUFFIX;]$IMAGE_VERSION_SUFFIX"
+      fi
+      set +x
 
       cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
 
@@ -280,6 +304,11 @@ jobs:
       # build environment
         
           JDK_MAJOR_VERSION:              $JDK_MAJOR_VERSION
+
+      # release information
+    
+          IS_PRIVATE_BRANCH:              $IS_PRIVATE_BRANCH
+          IS_RELEASE_BUILD:               $IS_RELEASE_BUILD
       EOF
     timeoutInMinutes: 1
     workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
@@ -643,38 +672,11 @@ jobs:
     # Provide images.
     ##############################################################################
 
-  - script: |
-      set -e
-
-      # Set IS_RELEASE_BUILD=(true|false)
-      # Set IS_PRIVATE_BRANCH=(true|false)
-      # Both variables are used to control process of image publication:
-      #  - Images from private branches are not published at all, applying the according naming rules.
-      #  - Images from public branches will be published, applying the according naming rules.
-
-      # Publishing artifacts is only allowed by branches, that are matching <branchesForPublication>.
-      if echo "$BUILD_SOURCEBRANCH" | grep -q '${{ parameters.branchesForPublication }}'; then
-        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]false'
-      else
-        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]true'
-      fi
-
-      if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
-        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]false'
-      else
-        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]true'
-      fi
-      cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
-
-      # release information
-    
-          IS_PRIVATE_BRANCH:              $IS_PRIVATE_BRANCH
-          IS_RELEASE_BUILD:               $IS_RELEASE_BUILD
-      EOF
-    timeoutInMinutes: 1
-    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
-    displayName: "Get info for publication of images"
-    #enabled false
+    # Set IS_RELEASE_BUILD=(true|false)
+    # Set IS_PRIVATE_BRANCH=(true|false)
+    # Both variables are used to control process of image publication:
+    #  - Images from private branches are not published at all, applying the according naming rules.
+    #  - Images from public branches will be published, applying the according naming rules.
 
   - task: Docker@2
     inputs:
