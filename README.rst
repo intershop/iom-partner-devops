@@ -66,15 +66,15 @@ Add the azure-pipelines.yml file to the root-directory of your project with the 
           acr:                                $(REPO_PATH)
 
           # You may need to inject additional steps into the current job. This can be done by
-          # definining additional templates, which are executed before and after the main steps
-          # of the current job. Just create according template files and pass their name to the
-          # following paramaters. '@self' is important, otherwise the templates would be expected
+          # defining additional templates, which are executed before and after the main steps
+          # of the current job. Just create according template files and pass their names to the
+          # following parameters. '@self' is important, otherwise the templates would be expected
           # at the same location as ci-job-template.yml.
           #preHookTemplate:  <filename>@self
           #postHookTemplate: <filename>@self
           #
           # This is a very simple example of a pre- or postHookTemplate:
-          # 
+          #
           # steps:
           # - script: |
           #     echo "Hello world"
