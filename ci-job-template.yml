@@ -278,11 +278,13 @@ jobs:
         echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]true'
       fi
 
+      set -x
       if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
         echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]false'
       else
         echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]true'
       fi
+      set +x
 
       set -x
       # Set image suffix for unique snapshot tags
