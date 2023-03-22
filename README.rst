@@ -55,6 +55,9 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
           # the name of the branch matches the regex passed in parameter branchesForPublication. If the default
           # behavior does not fit your requirements, activate the following line and adapt the regular expression.
           #branchesForPublication: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
+
+          # You can choose whether tags of SNAPSHOT images should be unique or not. Default value is False.
+          #uniqueSnapshotTag: True
         
           # These parameters must not be changed. They are used to pass variables to the ci-job templaten, which
           # are defined by library iom-build-configuration.
