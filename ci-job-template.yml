@@ -155,6 +155,7 @@ jobs:
     IOM_MINOR_VERSION:  ""
     JDK_MAJOR_VERSION:  ""
     PROJECT_VERSION:    ""
+    PROJECT_COMMIT:     ""
     M2_REPO_CACHE_HIT:  ""
     MINIKUBE_CACHE_HIT: ""
     INGRESS_IP:         ""
@@ -262,6 +263,10 @@ jobs:
       JDK_MAJOR_VERSION=$(xml_grep --text_only //plugins/plugin/configuration/release pom.xml)
       echo "##vso[task.setvariable variable=JDK_MAJOR_VERSION;]$JDK_MAJOR_VERSION"
 
+      # Determine current commit
+      PROJECT_COMMIT="$(git log -1 | head -n 1 | ( read IGNORE COMMIT IGNORE; echo $COMMIT ))"
+      echo "##vso[task.setvariable variable=PROJECT_COMMIT;]$PROJECT_COMMIT"
+
       cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
 
       # project information
@@ -269,6 +274,7 @@ jobs:
           IOM_VERSION:                    $IOM_VERSION
           IOM_MINOR_VERSION:              $IOM_MINOR_VERSION
           PROJECT_VERSION:                $PROJECT_VERSION
+          PROJECT_COMMIT:                 $PROJECT_COMMIT
 
       # build environment
         
@@ -344,6 +350,7 @@ jobs:
       set -e
 
       eval $(minikube -p minikube docker-env)
+      export PROJECT_REVISION="$PROJECT_COMMIT"
       mvn clean package -Pdocker \
         -Dubuntu.mirror.x64=$UBUNTU_MIRROR \
         -Dintershop.docker.repo=${{ parameters.dockerRepoIOM }} \
