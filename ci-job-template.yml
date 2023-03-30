@@ -1,4 +1,4 @@
-################################################################################
+###############################################################################
 # Parameters have to be specified by the caller, to customize the pipeline
 # for a certain project
 ################################################################################
@@ -157,17 +157,18 @@ jobs:
     #---------------------------------------------------------------------------
 
     # Publishing artifacts is only allowed by branches, that are matching <branchesForPublication>.
-    IS_PRIVATE_BRANCH:  true
-    IOM_VERSION:        ""
-    IOM_MINOR_VERSION:  ""
-    JDK_MAJOR_VERSION:  ""
-    PROJECT_VERSION:    ""
-    PROJECT_COMMIT:     ""
-    M2_REPO_CACHE_HIT:  ""
-    MINIKUBE_CACHE_HIT: ""
-    INGRESS_IP:         ""
-    POSTGRES_IP:        ""
-    IS_RELEASE_BUILD:   false
+    IS_PRIVATE_BRANCH:   true
+    IOM_VERSION:         ""
+    IOM_MINOR_VERSION:   ""
+    JDK_MAJOR_VERSION:   ""
+    PROJECT_VERSION:     ""
+    PROJECT_COMMIT:      ""
+    PROJECT_DESCRIPTION: ""
+    M2_REPO_CACHE_HIT:   ""
+    MINIKUBE_CACHE_HIT:  ""
+    INGRESS_IP:          ""
+    POSTGRES_IP:         ""
+    IS_RELEASE_BUILD:    false
 
   steps:
 
@@ -262,6 +263,12 @@ jobs:
       else
         echo "##[error] unable to determine project version."
         exit 1
+      fi
+
+      # Determine Project description.
+      PROJECT_DESCRIPTION=$(mvn help:evaluate -Dexpression=project.description -q -DforceStdout | tail -1)
+      if [ ! -z "$PROJECT_DESCRIPTION" ]; then
+        echo "##vso[task.setvariable variable=PROJECT_DESCRIPTION;]$PROJECT_DESCRIPTION"
       fi
 
       # Determine JDK version
