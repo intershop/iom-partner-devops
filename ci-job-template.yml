@@ -303,6 +303,7 @@ jobs:
           IOM_MINOR_VERSION:              $IOM_MINOR_VERSION
           PROJECT_VERSION:                $PROJECT_VERSION
           PROJECT_COMMIT:                 $PROJECT_COMMIT
+          PROJECT_DESCRIPTION:            $PROJECT_DESCRIPTION
 
       # build environment
         
