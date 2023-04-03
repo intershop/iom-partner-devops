@@ -6,13 +6,13 @@ iom-partner-devops
 Overview
 --------
 
-Repository *iom-partner-devops* provides an *Azure DevOps Pipeline* template, which can be used by IOM projects, that are managed inside *Intershops Commerce Platform*. The template should be used as is. Any custom additions should be made outside of the template.
+Repository *iom-partner-devops* provides an *Azure DevOps Pipeline* template, which can be used by IOM projects that are managed inside *Intershops Commerce Platform*. The template should be used as is. Any custom additions should be made outside of the template.
 
 --------------------------------
 How to use the pipeline template
 --------------------------------
 
-Add a file azure-pipelines.yml to the root-directory of your project with following content. After that, in Azure DevOps a new pipeline has to be created from this file.
+Add the azure-pipelines.yml file to the root-directory of your project with the following content. After that, in Azure DevOps a new pipeline has to be created from this file.
 
 .. code-block:: yaml
 
@@ -26,7 +26,7 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
   variables:
   - group: iom-build-configuration
 
-  # Create a repository resource to the Github repo, that is providing the centrally managed CI job.
+  # Create a repository resource in the Github repo that is providing the centrally managed CI job.
   resources:
     repositories:
       - repository: iom-partner-devops
@@ -35,7 +35,7 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
         name: intershop/iom-partner-devops
         ref: main
 
-  # Define, when the pipeline should be triggered.
+  # Define when the pipeline should be triggered.
   # See https://docs.microsoft.com/en-us/azure/devops/pipelines/repos/azure-repos-git?view=azure-devops&tabs=yaml#ci-triggers
   trigger:
     branches:
@@ -48,10 +48,10 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
     jobs:
       - template: ci-job-template.yml@iom-partner-devops
         parameters:
-          # You have to set here the name of the environment, that is providing the CI specific configuration! 
+          # You have to set here the name of the environment that is providing the CI specific configuration!
           projectEnvName:                     dev
 
-          # Project images, built and tested by the DevOps pipeline, are published to the project ACR only, if
+          # Project images, built and tested by the DevOps pipeline, are published to the project ACR only if
           # the name of the branch matches the regex passed in parameter branchesForPublication. If the default
           # behavior does not fit your requirements, activate the following line and adapt the regular expression.
           #branchesForPublication: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
@@ -71,22 +71,22 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
           acr:                                $(REPO_PATH)
 
           # You may need to inject additional steps into the current job. This can be done by
-          # definining additional templates, which are executed before and after the main steps
-          # of the current job. Just create according template files and pass their name to the
-          # following paramaters. '@self' is important, otherwise the templates would be expected
+          # defining additional templates, which are executed before and after the main steps
+          # of the current job. Just create according template files and pass their names to the
+          # following parameters. '@self' is important, otherwise the templates would be expected
           # at the same location as ci-job-template.yml.
           #preHookTemplate:  <filename>@self
           #postHookTemplate: <filename>@self
           #
           # This is a very simple example of a pre- or postHookTemplate:
-          # 
+          #
           # steps:
           # - script: |
           #     echo "Hello world"
           #   displayName: "hello world"
-        
-      # The following block shows a very simple example, how to extend the DevOps pipeline by a custom
-      # job. Alternatively one or more stages could be added, see:
+
+      # The following block shows a very simple example of how to extend the DevOps pipeline by a custom
+      # job. Alternatively, one or more stages could be added, see:
       # https://docs.microsoft.com/en-us/azure/devops/pipelines/process/stages?view=azure-devops
       #- job: custom
       #  pool: $(BUILD_AGENT_POOL)
@@ -100,5 +100,3 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
       #    clean: true
       #    timeoutInMinutes: 5
       #    displayName: "Checkout IOM project @$(Build.SourceBranchName)"
-		
-
