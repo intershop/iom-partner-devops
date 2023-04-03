@@ -40,7 +40,7 @@ parameters:
   type: string
   default: self
 
-  # If set to true, tag of SNAPSHOT images will be extended with an unique id.
+  # If set to true, tag of SNAPSHOT images will be extended with the commit hash.
 - name: uniqueSnapshotTag
   type: boolean
   default: true
