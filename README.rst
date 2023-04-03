@@ -56,7 +56,9 @@ Add a file azure-pipelines.yml to the root-directory of your project with follow
           # behavior does not fit your requirements, activate the following line and adapt the regular expression.
           #branchesForPublication: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
 
-          # You can choose whether tags of SNAPSHOT images should be unique or not. Default value is True.
+          # You can choose whether tags of SNAPSHOT images should be unique or not. The image tag becomes
+          # unique by appending the current commit hash.
+          # Default value is True.
           #uniqueSnapshotTag: True
         
           # These parameters must not be changed. They are used to pass variables to the ci-job templaten, which
