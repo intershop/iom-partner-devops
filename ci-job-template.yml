@@ -1,4 +1,4 @@
-################################################################################
+###############################################################################
 # Parameters have to be specified by the caller, to customize the pipeline
 # for a certain project
 ################################################################################
@@ -39,6 +39,11 @@ parameters:
 - name: repository
   type: string
   default: self
+
+  # If set to true, tag of SNAPSHOT images will be extended with the commit hash.
+- name: uniqueSnapshotTag
+  type: boolean
+  default: true
 
   # Name of template to be executed before all major steps of current job.
 - name: preHookTemplate
@@ -146,22 +151,24 @@ jobs:
 
     # Timeout for import of test-data.
     IMPORT_TESTDATA_TIMEOUT: 300
-    
+
     #---------------------------------------------------------------------------
     # Runtime variables to control the CI process.
     #---------------------------------------------------------------------------
 
-    IOM_VERSION:        ""
-    IOM_MINOR_VERSION:  ""
-    JDK_MAJOR_VERSION:  ""
-    PROJECT_VERSION:    ""
-    PROJECT_COMMIT:     ""
-    M2_REPO_CACHE_HIT:  ""
-    MINIKUBE_CACHE_HIT: ""
-    INGRESS_IP:         ""
-    POSTGRES_IP:        ""
-    IS_RELEASE_BUILD:   false
-    IS_PRIVATE_BRANCH:  true
+    # Publishing artifacts is only allowed by branches, that are matching <branchesForPublication>.
+    IS_PRIVATE_BRANCH:   true
+    IOM_VERSION:         ""
+    IOM_MINOR_VERSION:   ""
+    JDK_MAJOR_VERSION:   ""
+    PROJECT_VERSION:     ""
+    PROJECT_COMMIT:      ""
+    PROJECT_DESCRIPTION: ""
+    M2_REPO_CACHE_HIT:   ""
+    MINIKUBE_CACHE_HIT:  ""
+    INGRESS_IP:          ""
+    POSTGRES_IP:         ""
+    IS_RELEASE_BUILD:    false
 
   steps:
 
@@ -219,6 +226,7 @@ jobs:
           acrServiceConnection:           ${{ parameters.acrServiceConnection }}
           acr:                            ${{ parameters.acr }}
           artifactsFeed:                  ${{ parameters.artifactsFeed }}
+          uniqueSnapshotTag:              ${{ parameters.uniqueSnapshotTag }}
       EOF
     timeoutInMinutes: 1
     displayName: "Check parameters"
@@ -257,16 +265,36 @@ jobs:
         exit 1
       fi
 
+      # Determine Project description.
+      PROJECT_DESCRIPTION=$(mvn help:evaluate -Dexpression=project.description -q -DforceStdout | tail -1)
+      if [ ! -z "$PROJECT_DESCRIPTION" ]; then
+        echo "##vso[task.setvariable variable=PROJECT_DESCRIPTION;]$PROJECT_DESCRIPTION"
+      fi
+
       # Determine JDK version
       # TODO: xml_grep is not able to understand the expression /plugin[artifactId="maven-compiler-plugin"],
       # which would be required to select the jdk version really the right way.
       JDK_MAJOR_VERSION=$(xml_grep --text_only //plugins/plugin/configuration/release pom.xml)
       echo "##vso[task.setvariable variable=JDK_MAJOR_VERSION;]$JDK_MAJOR_VERSION"
 
-      # Determine current commit
-      PROJECT_COMMIT="$(git log -1 | head -n 1 | ( read IGNORE COMMIT IGNORE; echo $COMMIT ))"
-      echo "##vso[task.setvariable variable=PROJECT_COMMIT;]$PROJECT_COMMIT"
+      # Determine release related information
+      if echo "$BUILD_SOURCEBRANCH" | grep -q '${{ parameters.branchesForPublication }}'; then
+        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]false'
+      else
+        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]true'
+      fi
 
+      if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
+        IS_RELEASE_BUILD=false
+      else
+        IS_RELEASE_BUILD=true
+      fi
+      echo "##vso[task.setvariable variable=IS_RELEASE_BUILD;]$IS_RELEASE_BUILD"
+
+      # Determine current commit
+      PROJECT_COMMIT="$(git log -1 | head -n 1 | ( read IGNORE COMMIT IGNORE; echo $COMMIT ) | cut -c 1-10)"
+      echo "##vso[task.setvariable variable=PROJECT_COMMIT;]$PROJECT_COMMIT"
+      
       cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
 
       # project information
@@ -275,10 +303,16 @@ jobs:
           IOM_MINOR_VERSION:              $IOM_MINOR_VERSION
           PROJECT_VERSION:                $PROJECT_VERSION
           PROJECT_COMMIT:                 $PROJECT_COMMIT
+          PROJECT_DESCRIPTION:            $PROJECT_DESCRIPTION
 
       # build environment
         
           JDK_MAJOR_VERSION:              $JDK_MAJOR_VERSION
+
+      # release information
+    
+          IS_PRIVATE_BRANCH:              $IS_PRIVATE_BRANCH
+          IS_RELEASE_BUILD:               $IS_RELEASE_BUILD
       EOF
     timeoutInMinutes: 1
     workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
@@ -349,10 +383,17 @@ jobs:
   - script: |
       set -e
 
+      # Set image suffix for unique snapshot tags
+      # uniqueSnapshotTag is of type boolean. The according values are mapped to strings 'True' and 'False'.
+      if [ "$IS_RELEASE_BUILD" = 'false' -a "${{ parameters.uniqueSnapshotTag }}" = 'True' ]; then
+        IMAGE_VERSION_SUFFIX="-$PROJECT_COMMIT"
+      fi
+    
       eval $(minikube -p minikube docker-env)
       export PROJECT_REVISION="$PROJECT_COMMIT"
       mvn clean package -Pdocker \
         -Dubuntu.mirror.x64=$UBUNTU_MIRROR \
+        -Dimage.version.suffix=$IMAGE_VERSION_SUFFIX \
         -Dintershop.docker.repo=${{ parameters.dockerRepoIOM }} \
         -Dimage.docker.opts='--docker-opts="--no-cache" --get-image-name="'$PIPELINE_WORKSPACE/project-image-name.txt'" --get-image-tag="'$PIPELINE_WORKSPACE/project-image-tag.txt'"'
     timeoutInMinutes: 30
@@ -519,6 +560,15 @@ jobs:
 
   - script: |
       set -e
+      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config${{ parameters.id }}.md"
+    timeoutInMinutes: 1
+    condition: always()
+    continueOnError: true
+    displayName: "Provide pipeline configuration"
+    #enabled: false
+
+  - script: |
+      set -e
 
       # create test-framework configuration
       cat > testframework-config.user.yaml <<EOF
@@ -642,38 +692,11 @@ jobs:
     # Provide images.
     ##############################################################################
 
-  - script: |
-      set -e
-
-      # Set IS_RELEASE_BUILD=(true|false)
-      # Set IS_PRIVATE_BRANCH=(true|false)
-      # Both variables are used to control process of image publication:
-      #  - Images from private branches are not published at all, applying the according naming rules.
-      #  - Images from public branches will be published, applying the according naming rules.
-
-      # Publishing artifacts is only allowed by branches, that are matching <branchesForPublication>.
-      if echo "$BUILD_SOURCEBRANCH" | grep -q '${{ parameters.branchesForPublication }}'; then
-        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]false'
-      else
-        echo '##vso[task.setvariable variable=IS_PRIVATE_BRANCH;]true'
-      fi
-
-      if echo "$PROJECT_VERSION" | grep -qi 'snapshot$'; then
-        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]false'
-      else
-        echo '##vso[task.setvariable variable=IS_RELEASE_BUILD;]true'
-      fi
-      cat >> "$PIPELINE_WORKSPACE/config${{ parameters.id }}.md" <<EOF
-
-      # release information
-    
-          IS_PRIVATE_BRANCH:              $IS_PRIVATE_BRANCH
-          IS_RELEASE_BUILD:               $IS_RELEASE_BUILD
-      EOF
-    timeoutInMinutes: 1
-    workingDirectory: $(Pipeline.Workspace)/$(PROJECT_PATH)/${{ parameters.projectDir }}
-    displayName: "Get info for publication of images"
-    #enabled false
+    # Set IS_RELEASE_BUILD=(true|false)
+    # Set IS_PRIVATE_BRANCH=(true|false)
+    # Both variables are used to control process of image publication:
+    #  - Images from private branches are not published at all, applying the according naming rules.
+    #  - Images from public branches will be published, applying the according naming rules.
 
   - task: Docker@2
     inputs:
@@ -701,15 +724,6 @@ jobs:
     timeoutInMinutes: 5
     condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH, 'false'))
     displayName: "Publish project image"
-    #enabled: false
-
-  - script: |
-      set -e
-      echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/config${{ parameters.id }}.md"
-    timeoutInMinutes: 1
-    condition: always()
-    continueOnError: true
-    displayName: "Provide pipeline configuration"
     #enabled: false
 
   - ${{ if not(eq(parameters.postHookTemplate, '')) }}:
