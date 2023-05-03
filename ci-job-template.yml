@@ -390,6 +390,7 @@ jobs:
       fi
     
       eval $(minikube -p minikube docker-env)
+      export PROJECT_REVISION="$PROJECT_COMMIT"
       mvn clean package -Pdocker \
         -Dubuntu.mirror.x64=$UBUNTU_MIRROR \
         -Dimage.version.suffix=$IMAGE_VERSION_SUFFIX \
