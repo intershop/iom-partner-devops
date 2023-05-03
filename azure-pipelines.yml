@@ -62,4 +62,5 @@ stages:
           acrServiceConnection:               $(REPO_SERVICE_CONNECTION)
           acr:                                $(REPO_PATH)
           projectEnvName:                     dev
+          uniqueSnapshotTag:                  True
           id:                                 ${{ entry.id }}
