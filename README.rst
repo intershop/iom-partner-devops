@@ -56,7 +56,12 @@ Add the azure-pipelines.yml file to the root-directory of your project with the 
           # behavior does not fit your requirements, activate the following line and adapt the regular expression.
           #branchesForPublication: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
 
-          # These parameters must not be changed. They are used to pass variables to the ci-job templates, which
+          # You can choose whether tags of SNAPSHOT images should be unique or not. The image tag becomes
+          # unique by appending the current commit hash.
+          # Default value is True.
+          #uniqueSnapshotTag: True
+        
+          # These parameters must not be changed. They are used to pass variables to the ci-job templaten, which
           # are defined by library iom-build-configuration.
           agentPool:                          $(BUILD_AGENT_POOL)
           artifactsFeed:                      iom-maven-artifacts
