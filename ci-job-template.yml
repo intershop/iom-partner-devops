@@ -722,11 +722,11 @@ jobs:
       set -e
 
       cat <<EOF > $PIPELINE_WORKSPACE/imageProperties.yaml
-        images:
-          - type: iom
-            tag: $(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
-            name: $(cat $PIPELINE_WORKSPACE/project-image-name.txt)
-            registry: ${{ parameters.acr }}
+      images:
+        - type: iom
+          tag: $(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
+          name: $(cat $PIPELINE_WORKSPACE/project-image-name.txt)
+          registry: ${{ parameters.acr }}
       EOF
       echo "##vso[artifact.upload containerfolder=image;artifactname=image_artifacts${{ parameters.id }}]$PIPELINE_WORKSPACE/imageProperties.yaml"
 
