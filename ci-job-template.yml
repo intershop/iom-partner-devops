@@ -717,6 +717,23 @@ jobs:
     displayName: "Publish project image"
     #enabled: false
 
+  # Generate a build information file and push it as a pipeline artifact.
+  - script: |
+      set -e
+
+      cat <<EOF > $PIPELINE_WORKSPACE/imageProperties.yaml
+      images:
+        - type: iom
+          tag: $(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
+          name: $(cat $PIPELINE_WORKSPACE/project-image-name.txt)
+          registry: ${{ parameters.acr }}
+      EOF
+      echo "##vso[artifact.upload containerfolder=image;artifactname=image_artifacts${{ parameters.id }}]$PIPELINE_WORKSPACE/imageProperties.yaml"
+
+    timeoutInMinutes: 5
+    displayName: "Create image overview"
+    #enabled: false
+
   - ${{ if not(eq(parameters.postHookTemplate, '')) }}:
     - template: ${{ parameters.postHookTemplate }}
   
