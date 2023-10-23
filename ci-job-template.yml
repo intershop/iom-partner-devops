@@ -114,7 +114,7 @@ jobs:
     
     # IOM Helm Charts.
     # TODO: use latest version
-    IOM_HELM_VERSION: 2.1.0
+    IOM_HELM_VERSION: 2.3.0
     IOM_HELM_URL: https://intershop.github.io/helm-charts
     
     DBACCOUNT_IMAGE_NAME: iom-dbaccount
