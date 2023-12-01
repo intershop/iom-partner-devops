@@ -30,22 +30,22 @@ resources:
   repositories:
     - repository: iom-blueprint-project-develop
       type:       github
-      endpoint:   github-intershop
+      endpoint:   INTERSHOP_GITHUB
       name:       intershop/iom-blueprint-project
       ref:        develop
     - repository: iom-blueprint-project-1-3-1
       type:       github
-      endpoint:   github-intershop
+      endpoint:   INTERSHOP_GITHUB
       name:       intershop/iom-blueprint-project
       ref:        refs/tags/1.3.1
     - repository: iom-blueprint-project-1-4-0
       type:       github
-      endpoint:   github-intershop
+      endpoint:   INTERSHOP_GITHUB
       name:       intershop/iom-blueprint-project
       ref:        refs/tags/1.4.0
     - repository: iom-blueprint-project-1-5-0
       type:       github
-      endpoint:   github-intershop
+      endpoint:   INTERSHOP_GITHUB
       name:       intershop/iom-blueprint-project
       ref:        refs/tags/1.5.0
 
