@@ -54,6 +54,17 @@ trigger:
     include:
       - '*'
 
+# make sure, that the system is still working (might be broken due to
+# outdated service connection, etc.).
+schedules:
+- cron: "0 2 * * *"
+  displayName: Daily scheduled run
+  branches:
+    include:
+      - 'main'
+    #exclude: 
+  always: true
+
 # see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#extend-from-a-template
 # see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#use-other-repositories
 stages:
