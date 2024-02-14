@@ -507,6 +507,10 @@ jobs:
       
       # Install IOM project.
       helm install $IOM_HELM_RELEASE intershop/iom --version $IOM_HELM_VERSION -f values.yaml --namespace $IOM_KUBERNETES_NAMESPACE --timeout 20m0s --wait
+
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE
+      kubectl get ingress -n $IOM_KUBERNETES_NAMESPACE
+    
       # Wait for import of test-data + 1 minute.
       # If import of test-data fails, the pod will be restarted.
       sleep $(expr $IMPORT_TESTDATA_TIMEOUT + 60)
