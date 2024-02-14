@@ -12,6 +12,9 @@ parameters:
     - repository:    iom-blueprint-project-1-4-0
       artifactsFeed: iom-maven-artifacts
       id:            _1_4_0
+    - repository:    iom-blueprint-project-1-5-0
+      artifactsFeed: iom-maven-artifacts
+      id:            _1_5_0
 
 # Library iom-build-configuration is provided by Intershops DevOps Environment. It provides
 # the following variables:
@@ -27,24 +30,40 @@ resources:
   repositories:
     - repository: iom-blueprint-project-develop
       type:       github
-      endpoint:   github-intershop
+      endpoint:   INTERSHOP_GITHUB
       name:       intershop/iom-blueprint-project
       ref:        develop
-    - repository: iom-blueprint-project-1-4-0
-      type:       github
-      endpoint:   github-intershop
-      name:       intershop/iom-blueprint-project
-      ref:        refs/tags/1.4.0
     - repository: iom-blueprint-project-1-3-1
       type:       github
-      endpoint:   github-intershop
+      endpoint:   INTERSHOP_GITHUB
       name:       intershop/iom-blueprint-project
       ref:        refs/tags/1.3.1
+    - repository: iom-blueprint-project-1-4-0
+      type:       github
+      endpoint:   INTERSHOP_GITHUB
+      name:       intershop/iom-blueprint-project
+      ref:        refs/tags/1.4.0
+    - repository: iom-blueprint-project-1-5-0
+      type:       github
+      endpoint:   INTERSHOP_GITHUB
+      name:       intershop/iom-blueprint-project
+      ref:        refs/tags/1.5.0
 
 trigger:
   branches:
     include:
       - '*'
+
+# make sure, that the system is still working (might be broken due to
+# outdated service connection, etc.).
+schedules:
+- cron: "0 2 * * *"
+  displayName: Daily scheduled run
+  branches:
+    include:
+      - 'main'
+    #exclude: 
+  always: true
 
 # see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#extend-from-a-template
 # see https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops#use-other-repositories
