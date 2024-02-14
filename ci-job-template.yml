@@ -444,6 +444,8 @@ jobs:
         provisioning: local
         local:
           hostPath: /mnt/share
+      podAntiAffinity:
+        enabled: false
       ingress:
         annotations:
           nginx.ingress.kubernetes.io/ssl-redirect: "false"
