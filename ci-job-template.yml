@@ -110,15 +110,15 @@ jobs:
 
     # Version of Helm.
     #HELM_VERSION: 3.8.2
-    HELM_VERSION: 3.6.3
+    HELM_VERSION: 3.14.0
     
     # IOM Helm Charts.
     # TODO: use latest version
-    IOM_HELM_VERSION: 2.3.0
+    IOM_HELM_VERSION: 3.0.0
     IOM_HELM_URL: https://intershop.github.io/helm-charts
     
     DBACCOUNT_IMAGE_NAME: iom-dbaccount
-    DBACCOUNT_IMAGE_TAG: 1.5.0
+    DBACCOUNT_IMAGE_TAG: 2.0.0
     
     UBUNTU_MIRROR: http://azure.archive.ubuntu.com/ubuntu/
     
@@ -441,11 +441,14 @@ jobs:
         importTestData: true
         importTestDataTimeout: $IMPORT_TESTDATA_TIMEOUT
       persistence:
-        hostPath: /mnt/share
+        provisioning: local
+        local:
+          hostPath: /mnt/share
+      podAntiAffinity:
+        enabled: false
       ingress:
         annotations:
           nginx.ingress.kubernetes.io/ssl-redirect: "false"
-        className: nginx-iom
         hosts:
           - host:
             paths:
@@ -464,29 +467,10 @@ jobs:
           requests:
             cpu: 1000m
             memory: 1000Mi
-
-      mailhog:
+      mailpit:
         enabled: true
-        probes:
-          enabled: false
         ingress:
           enabled: false
-      nginx:
-        enabled: true
-        proxy:
-          enabled: false
-      ingress-nginx:
-        rbac:
-          scope: false
-        controller:
-          scope:
-            enabled: false
-          service:
-            type: LoadBalancer
-            ports:
-              # for running in user-space, ports have to > 1024
-              http:  8080
-              https: 8443
       EOF
 
       # Convert values file into markdown format.
@@ -500,7 +484,21 @@ jobs:
 
       # create log-directory
       mkdir $LOG_DIR
-      
+
+      kubectl create namespace nginx
+
+      # Install NGINX Helm charts
+      helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+      helm repo update
+
+      # Install NGINX
+      helm install global ingress-nginx/ingress-nginx -n nginx --timeout 10m0s --wait \
+        --set controller.service.type=LoadBalancer \
+        --set controller.service.ports.http=8080 \
+        --set controller.service.ports.https=8443 \
+        --set rbac.scope=false \
+        --set controller.scope.enabled=false
+
       kubectl create namespace $IOM_KUBERNETES_NAMESPACE
       
       # Install IOM Helm charts
@@ -509,6 +507,7 @@ jobs:
       
       # Install IOM project.
       helm install $IOM_HELM_RELEASE intershop/iom --version $IOM_HELM_VERSION -f values.yaml --namespace $IOM_KUBERNETES_NAMESPACE --timeout 20m0s --wait
+
       # Wait for import of test-data + 1 minute.
       # If import of test-data fails, the pod will be restarted.
       sleep $(expr $IMPORT_TESTDATA_TIMEOUT + 60)
@@ -521,7 +520,7 @@ jobs:
       set -e
 
       # get IP of ingress
-      INGRESS_IP=$(kubectl get service $IOM_HELM_RELEASE-ingress-nginx-controller -n $IOM_KUBERNETES_NAMESPACE -o jsonpath={.status.loadBalancer.ingress[0].ip})
+      INGRESS_IP=$(kubectl get service global-ingress-nginx-controller -n nginx -o jsonpath={.status.loadBalancer.ingress[0].ip})
       if echo "$INGRESS_IP" |  grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
         echo "##vso[task.setvariable variable=INGRESS_IP;]$INGRESS_IP"
       else
@@ -628,7 +627,7 @@ jobs:
       done
       tar -cvzf logs.tgz *
       rm *.txt
-      
+
     # Don't stop on error to get as much information as possible.
     continueOnError: true
     timeoutInMinutes: 5
