@@ -630,6 +630,8 @@ jobs:
       done
       tar -cvzf logs.tgz *
       rm *.txt
+
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE
       
     # Don't stop on error to get as much information as possible.
     continueOnError: true
