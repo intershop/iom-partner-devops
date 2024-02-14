@@ -496,6 +496,8 @@ jobs:
         --set controller.service.ports.https=8443 \
         --set rbac.scope=false \
         --set controller.scope.enabled=false
+
+      kubectl get all -n nginx
     
       kubectl create namespace $IOM_KUBERNETES_NAMESPACE
       
