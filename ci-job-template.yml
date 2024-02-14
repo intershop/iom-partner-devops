@@ -523,7 +523,7 @@ jobs:
       set -e
 
       # get IP of ingress
-      INGRESS_IP=$(kubectl get service $IOM_HELM_RELEASE-ingress-nginx-controller -n $IOM_KUBERNETES_NAMESPACE -o jsonpath={.status.loadBalancer.ingress[0].ip})
+      INGRESS_IP=$(kubectl get service global-ingress-nginx-controller -n nginx -o jsonpath={.status.loadBalancer.ingress[0].ip})
       if echo "$INGRESS_IP" |  grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
         echo "##vso[task.setvariable variable=INGRESS_IP;]$INGRESS_IP"
       else
