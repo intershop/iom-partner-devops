@@ -15,6 +15,9 @@ parameters:
     - repository:    iom-blueprint-project-1-5-0
       artifactsFeed: iom-maven-artifacts
       id:            _1_5_0
+    - repository:    iom-blueprint-project-1-6-0
+      artifactsFeed: iom-maven-artifacts
+      id:            _1_6_0
 
 # Library iom-build-configuration is provided by Intershops DevOps Environment. It provides
 # the following variables:
@@ -48,6 +51,11 @@ resources:
       endpoint:   INTERSHOP_GITHUB
       name:       intershop/iom-blueprint-project
       ref:        refs/tags/1.5.0
+    - repository: iom-blueprint-project-1-6-0
+      type:       github
+      endpoint:   INTERSHOP_GITHUB
+      name:       intershop/iom-blueprint-project
+      ref:        refs/tags/1.6.0
 
 trigger:
   branches:
