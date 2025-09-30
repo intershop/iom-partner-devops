@@ -428,6 +428,7 @@ jobs:
       # Create values file.
       cat > values.yaml <<EOF
       replicaCount: $REPLICA_COUNT
+      kubectlImageRepository: "bitnamilegacy/kubectl:1.32.1"
       image:
         repository: $(cat $PIPELINE_WORKSPACE/project-image-name.txt)
         tag: $(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
