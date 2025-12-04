@@ -454,6 +454,13 @@ jobs:
             paths:
               - path: /
                 pathType: Prefix
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 3000Mi
+        requests:
+          cpu: 1000m
+          memory: 3000Mi
       postgres:
         enabled: true
         persistence:
