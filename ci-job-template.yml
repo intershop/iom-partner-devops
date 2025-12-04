@@ -461,6 +461,8 @@ jobs:
         requests:
           cpu: 1000m
           memory: 3000Mi
+      jboss:
+        javaOpts: "-XX:+UseContainerSupport -XX:MinRAMPercentage=60 -XX:MaxRAMPercentage=60"
       postgres:
         enabled: true
         persistence:
