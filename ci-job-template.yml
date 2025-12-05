@@ -461,10 +461,10 @@ jobs:
       resources:
         limits:
           cpu: 1000m
-          memory: 3000Mi
+          memory: 2500Mi
         requests:
           cpu: 1000m
-          memory: 3000Mi
+          memory: 2500Mi
       jboss:
         javaOpts: "-XX:+UseContainerSupport -XX:MinRAMPercentage=60 -XX:MaxRAMPercentage=60"
       postgres:
@@ -476,7 +476,7 @@ jobs:
         resources:
           limits:
             cpu: 2000m
-            memory: 3000Mi
+            memory: 2500Mi
           requests:
             cpu: 1000m
             memory: 1000Mi
@@ -524,6 +524,8 @@ jobs:
       # Wait for import of test-data + 1 minute.
       # If import of test-data fails, the pod will be restarted.
       sleep $(expr $IMPORT_TESTDATA_TIMEOUT + 60)
+      # Show available memory
+      free -h
     timeoutInMinutes: 30
     workingDirectory: $(Pipeline.Workspace)
     displayName: "Install IOM in minikube"
