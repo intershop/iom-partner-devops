@@ -461,10 +461,10 @@ jobs:
       resources:
         limits:
           cpu: 1000m
-          memory: 2500Mi
+          memory: 3500Mi
         requests:
           cpu: 1000m
-          memory: 2500Mi
+          memory: 3500Mi
       jboss:
         javaOpts: "-XX:+UseContainerSupport -XX:MinRAMPercentage=60 -XX:MaxRAMPercentage=60"
       postgres:
@@ -476,10 +476,10 @@ jobs:
         resources:
           limits:
             cpu: 2000m
-            memory: 2500Mi
+            memory: 3000Mi
           requests:
             cpu: 1000m
-            memory: 1000Mi
+            memory: 3000Mi
       mailpit:
         enabled: true
         ingress:
