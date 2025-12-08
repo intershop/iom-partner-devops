@@ -60,7 +60,7 @@ postgres:
 
 ### Testing Changes to ci-job-template.yml
 Partner projects cannot directly test template changes. Use `azure-pipelines.yml` as integration test:
-- Defines 5 blueprint project instances (`iom-blueprint-project-develop`, `1-3-1`, `1-4-0`, `1-5-0`, `1-6-0`)
+- Defines 4 blueprint project instances (`iom-blueprint-project-develop`, `1-5-0`, `1-6-0`, `1-7-0`)
 - Each blueprint tests template against different IOM versions via loop
 - Runs nightly (`cron: "0 2 * * *"`) to detect environment drift
 
