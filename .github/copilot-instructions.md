@@ -8,7 +8,7 @@ This repository provides centralized Azure DevOps CI/CD pipeline templates for I
 
 ### Core Components
 
-- **`ci-job-template.yml`**: The main reusable pipeline template (755 lines) that orchestrates the entire CI/CD workflow
+- **`ci-job-template.yml`**: The main reusable pipeline template (794 lines) that orchestrates the entire CI/CD workflow
 - **`azure-pipelines.yml`**: Example consumer pipeline demonstrating how partner projects use this template
 - **README.rst**: Comprehensive integration guide for partner projects
 
@@ -16,11 +16,12 @@ This repository provides centralized Azure DevOps CI/CD pipeline templates for I
 
 The template executes a complete containerized testing cycle:
 
-1. **Environment Setup** → validates parameters, checks out project, determines IOM version and JDK requirements
+1. **Environment Setup** → validates parameters, checks out project, determines IOM version and JDK requirements, displays available memory
 2. **Build Phase** → creates Docker images using Maven (`mvn clean package -Pdocker`) within Minikube's Docker daemon
 3. **Deployment Phase** → installs IOM via Helm charts in local Minikube cluster with PostgreSQL, NGINX ingress, and replicas
-4. **Test Phase** → runs integration tests using Maven (`mvn verify`) with Failsafe against the deployed IOM instance
-5. **Publication Phase** → pushes tested images to Azure Container Registry (ACR) only for protected branches matching `branchesForPublication` regex
+4. **Diagnostics Capture** → collects comprehensive Kubernetes cluster status, pod descriptions, events, and container logs for troubleshooting
+5. **Test Phase** → runs integration tests using Maven (`mvn verify`) with Failsafe against the deployed IOM instance
+6. **Publication Phase** → pushes tested images to Azure Container Registry (ACR) only for protected branches matching `branchesForPublication` regex
 
 ## Critical Configuration Patterns
 
@@ -39,12 +40,20 @@ Only branches matching this regex publish images to ACR. Variable `IS_PRIVATE_BR
 - **IOM version**: Extracted from Maven property `platform.version` in project's pom.xml
 
 ### Resource Requirements
-Hardcoded Minikube setup: `--cpus=max --memory=8000m`  
+Minikube setup: `--cpus=max --memory=12000m` (increased from 8GB to 12GB for stability)  
+The pipeline checks available memory with `free -h` before starting Minikube and after Helm installation.
+
 Pod resources in values.yaml:
 ```yaml
 resources:
-  limits: {cpu: 1000m, memory: 3000Mi}
-  requests: {cpu: 1000m, memory: 3000Mi}
+  limits: {cpu: 1000m, memory: 3500Mi}
+  requests: {cpu: 1000m, memory: 3500Mi}
+jboss:
+  javaOpts: "-XX:+UseContainerSupport -XX:MinRAMPercentage=60 -XX:MaxRAMPercentage=60"
+postgres:
+  resources:
+    requests: {cpu: 1000m, memory: 3000Mi}  # Increased from 1000Mi
+    limits: {cpu: 2000m, memory: 3000Mi}
 ```
 
 ## Developer Workflows
@@ -67,8 +76,15 @@ Hooks execute before/after main CI steps. Use `@self` to reference templates in 
 Pipeline publishes extensive diagnostics on failure:
 - **Build Summary**: `config${{ parameters.id }}.md` shows all resolved variables
 - **Helm Values**: `values${{ parameters.id }}.md` contains complete Helm configuration
+- **Installation Diagnostics**: Automatic capture after Helm install includes:
+  - Kubernetes cluster status (`kubectl get all`)
+  - Pod descriptions with events and conditions
+  - Namespace events sorted by timestamp
+  - Container logs from all pods (last 100 lines per container)
+  - PostgreSQL and NGINX ingress logs
 - **K8s Status**: `kubernetes${{ parameters.id }}.md` shows pod states
 - **Logs Artifact**: `iom-logs${{ parameters.id }}` includes pod logs, kubectl describe output, surefire output
+- **Memory Monitoring**: `free -h` output before Minikube start and after Helm installation
 
 ## Key Conventions
 
@@ -92,10 +108,13 @@ The `id` parameter (must be `[a-zA-Z0-9_]` only) makes job names unique when tem
 
 ## Common Pitfalls
 
-1. **JDK Version Detection**: Uses `xml_grep` on `//plugins/plugin/configuration/release` which may fail if Maven Compiler Plugin isn't structured as expected
-2. **Image Tagging**: SNAPSHOT images without `uniqueSnapshotTag` will overwrite previous tags—use unique tags for reliable artifact tracking
-3. **Test Data Import**: Pipeline waits `IMPORT_TESTDATA_TIMEOUT + 60` seconds after Helm install, but doesn't verify import success—pod restarts indicate failure
-4. **LoadBalancer IPs**: Requires `minikube tunnel` running in background; IP extraction fails silently if tunnel isn't established
+1. **Memory Requirements**: Build agents must have at least 12GB+ free memory for Minikube. Check `free -h` output if installation fails with "context deadline exceeded" errors
+2. **JVM Heap Configuration**: IOM pods use 60% of container memory for heap (`-XX:MinRAMPercentage=60 -XX:MaxRAMPercentage=60`). Insufficient memory causes OOM kills
+3. **JDK Version Detection**: Uses `xml_grep` on `//plugins/plugin/configuration/release` which may fail if Maven Compiler Plugin isn't structured as expected
+4. **Image Tagging**: SNAPSHOT images without `uniqueSnapshotTag` will overwrite previous tags—use unique tags for reliable artifact tracking
+5. **Test Data Import**: Pipeline waits `IMPORT_TESTDATA_TIMEOUT + 60` seconds after Helm install, but doesn't verify import success—pod restarts indicate failure
+6. **LoadBalancer IPs**: Requires `minikube tunnel` running in background; IP extraction fails silently if tunnel isn't established
+7. **Rate Limiter Errors**: "client rate limiter Wait returned an error" during Helm install usually indicates resource exhaustion—check pod events and container logs in diagnostics output
 
 ## Modifying the Template
 
