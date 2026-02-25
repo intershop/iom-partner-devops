@@ -385,7 +385,7 @@ jobs:
       free -h
       
       # hardcoded cpu/memory requirements for now
-      minikube start --vm-driver=docker --cpus=max --memory=12000m
+      minikube start --vm-driver=docker --cpus=max --memory=8000m
     displayName: "Start minikube"
     timeoutInMinutes: 5
     #enabled: false
@@ -446,6 +446,7 @@ jobs:
       # Create values file.
       cat > values.yaml <<EOF
       replicaCount: $REPLICA_COUNT
+      kubectlImageRepository: bitnami/kubectl:latest
       image:
         repository: $(cat $PIPELINE_WORKSPACE/project-image-name.txt)
         tag: $(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
@@ -475,12 +476,12 @@ jobs:
       resources:
         limits:
           cpu: 1000m
-          memory: 3500Mi
+          memory: 2500Mi
         requests:
           cpu: 1000m
-          memory: 3500Mi
+          memory: 2500Mi
       jboss:
-        javaOpts: "-XX:+UseContainerSupport -XX:MinRAMPercentage=60 -XX:MaxRAMPercentage=60"
+        javaOpts: "-XX:+UseContainerSupport -XX:MaxRAM=2500m -XX:MaxRAMPercentage=60"
       postgres:
         enabled: true
         persistence:
@@ -490,14 +491,21 @@ jobs:
         resources:
           limits:
             cpu: 2000m
-            memory: 3000Mi
+            memory: 2000Mi
           requests:
             cpu: 1000m
-            memory: 3000Mi
+            memory: 800Mi
       mailpit:
         enabled: true
         ingress:
           enabled: false
+        resources:
+          limits:
+            cpu: 100m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 48Mi
       EOF
 
       # Convert values file into markdown format.
@@ -527,58 +535,22 @@ jobs:
         --set controller.scope.enabled=false
 
       kubectl create namespace $IOM_KUBERNETES_NAMESPACE
-      
+
       # Install IOM Helm charts
       helm repo add intershop $IOM_HELM_URL
       helm repo update
-      
+
       # Install IOM project.
       helm install $IOM_HELM_RELEASE intershop/iom --version $IOM_HELM_VERSION -f values.yaml --namespace $IOM_KUBERNETES_NAMESPACE --timeout 20m0s --wait
 
       # Wait for import of test-data + 1 minute.
       # If import of test-data fails, the pod will be restarted.
-      sleep $(expr $IMPORT_TESTDATA_TIMEOUT + 60)
-      # Show available memory
-      free -h
+      DURATION_SECONDS=$(expr $IMPORT_TESTDATA_TIMEOUT + 60)
+      sleep $DURATION_SECONDS
+
     timeoutInMinutes: 30
     workingDirectory: $(Pipeline.Workspace)
     displayName: "Install IOM in minikube"
-    #enabled: false
-
-  - script: |
-      # Don't stop on error - capture diagnostics even if some commands fail
-      set +e
-      
-      echo "=== Kubernetes Cluster Status ==="
-      kubectl get all -n $IOM_KUBERNETES_NAMESPACE
-      
-      echo -e "\n=== Pod Status Details ==="
-      kubectl get pods -n $IOM_KUBERNETES_NAMESPACE -o wide
-      
-      echo -e "\n=== Pod Descriptions ==="
-      kubectl describe pods -n $IOM_KUBERNETES_NAMESPACE
-      
-      echo -e "\n=== Events in namespace ==="
-      kubectl get events -n $IOM_KUBERNETES_NAMESPACE --sort-by='.lastTimestamp'
-      
-      echo -e "\n=== Container Logs ==="
-      # Get all pods in the namespace
-      for POD in $(kubectl get pods -n $IOM_KUBERNETES_NAMESPACE -o jsonpath='{.items[*].metadata.name}'); do
-        echo -e "\n--- Logs for pod: $POD ---"
-        kubectl logs $POD -n $IOM_KUBERNETES_NAMESPACE --all-containers=true --prefix=true --tail=100 || echo "Failed to get logs for $POD"
-      done
-      
-      echo -e "\n=== Postgres Status ==="
-      kubectl logs -n $IOM_KUBERNETES_NAMESPACE -l app.kubernetes.io/name=postgres --tail=50 || echo "No postgres logs available"
-      
-      echo -e "\n=== NGINX Ingress Status ==="
-      kubectl get all -n nginx
-      kubectl logs -n nginx -l app.kubernetes.io/name=ingress-nginx --tail=50 || echo "No nginx logs available"
-    continueOnError: true
-    timeoutInMinutes: 5
-    condition: always()
-    workingDirectory: $(Pipeline.Workspace)
-    displayName: "Capture installation diagnostics"
     #enabled: false
 
   - script: |
@@ -683,6 +655,8 @@ jobs:
       set +e
       
       kubectl get all -n $IOM_KUBERNETES_NAMESPACE > get-all.txt
+      kubectl get events -n $IOM_KUBERNETES_NAMESPACE --sort-by='.lastTimestamp' >> get-all.txt
+
       kubectl logs $IOM_HELM_RELEASE-iom-0 -n $IOM_KUBERNETES_NAMESPACE -c dbaccount > dbaccount-logs.txt
       I=0
       while [ "$I" -lt "$REPLICA_COUNT" ]; do
@@ -718,7 +692,8 @@ jobs:
       Helm release is **${IOM_HELM_RELEASE}**.
       
       EOF
-      kubectl get all -n $IOM_KUBERNETES_NAMESPACE | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes${{ parameters.id }}.md"
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes${{ parameters.id }}.md"      
+      kubectl get events -n $IOM_KUBERNETES_NAMESPACE --sort-by='.lastTimestamp' | sed 's/\(.*\)/    \1/g' >> "$PIPELINE_WORKSPACE/kubernetes${{ parameters.id }}.md"
       echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/kubernetes${{ parameters.id }}.md"
 
     # Don't stop on error to get as much information as possible.
