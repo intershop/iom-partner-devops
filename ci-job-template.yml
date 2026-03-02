@@ -93,6 +93,19 @@ parameters:
   type: string
   default: '^refs/heads/develop$\|^refs/heads/master$\|^refs/heads/main$\|^refs/heads/release/\|^refs/heads/hotfix/'
 
+  # Name of the ARM service connection to the ACR of the project.
+  # Note: This is not a service connection for Docker.
+  # It is a service connection for the Azure Resource Manager (ARM) 
+  # with access to the Azure Container Registry (ACR) resource.
+- name: acrServiceConnectionArm
+  type: string
+  default: '$(REPO_SERVICE_CONNECTION_ARM)'
+
+  # Enable immutable images when created for releases.
+- name: lockImages
+  type: boolean
+  default: true
+
 jobs:
 - job: CI${{ parameters.id }}
   pool: '${{ parameters.agentPool }}'
@@ -226,6 +239,8 @@ jobs:
           acr:                            ${{ parameters.acr }}
           artifactsFeed:                  ${{ parameters.artifactsFeed }}
           uniqueSnapshotTag:              ${{ parameters.uniqueSnapshotTag }}
+          lockImages:                     ${{ parameters.lockImages }}
+          acrServiceConnectionArm:        ${{ parameters.acrServiceConnectionArm }}
       EOF
     timeoutInMinutes: 1
     displayName: "Check parameters"
@@ -750,18 +765,36 @@ jobs:
     #enabled: false
     
   - script: |
-      set -e
+      set -euo pipefail
 
+      # Read file contents and trim whitespace
+      IMAGE_NAME=$(cat "$PIPELINE_WORKSPACE/project-image-name.txt" | tr -d '[:space:]')
+      IMAGE_TAG=$(cat "$PIPELINE_WORKSPACE/project-image-tag.txt" | tr -d '[:space:]')
+
+      if [ -z "$IMAGE_NAME" ]; then
+        echo "##[error] IMAGE_NAME is empty!"
+        exit 1
+      fi
+      if [ -z "$IMAGE_TAG" ]; then
+        echo "##[error] IMAGE_TAG is empty!"
+        exit 1
+      fi
+      
       eval $(minikube -p minikube docker-env)
-      PROVIDED_IMAGE=${{ parameters.acr }}/$(cat $PIPELINE_WORKSPACE/project-image-name.txt):$(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
-      docker tag "$(cat $PIPELINE_WORKSPACE/project-image-name.txt):$(cat $PIPELINE_WORKSPACE/project-image-tag.txt)" $PROVIDED_IMAGE
-      docker push $PROVIDED_IMAGE
+      PROVIDED_IMAGE="${{ parameters.acr }}/${IMAGE_NAME}:${IMAGE_TAG}"
+      
+      docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "$PROVIDED_IMAGE"
+      docker push "$PROVIDED_IMAGE"
 
-      cat > $PIPELINE_WORKSPACE/docker-image${{ parameters.id }}.md <<EOF
+      cat > "$PIPELINE_WORKSPACE/docker-image${{ parameters.id }}.md" <<EOF
       # Provided Docker image
           $PROVIDED_IMAGE
       EOF
+      
       echo "##vso[task.uploadsummary]$PIPELINE_WORKSPACE/docker-image${{ parameters.id }}.md"
+      echo "##vso[task.setvariable variable=IMAGE_TAG]$IMAGE_TAG"
+      echo "##vso[task.setvariable variable=IMAGE_NAME]$IMAGE_NAME"
+      echo "##vso[task.setvariable variable=IMAGE_REGISTRY]${{ parameters.acr }}"
 
     timeoutInMinutes: 5
     condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH, 'false'))
@@ -770,20 +803,45 @@ jobs:
 
   # Generate a build information file and push it as a pipeline artifact.
   - script: |
-      set -e
+      set -euo pipefail
 
       cat <<EOF > $PIPELINE_WORKSPACE/imageProperties.yaml
       images:
         - type: iom
-          tag: $(cat $PIPELINE_WORKSPACE/project-image-tag.txt)
-          name: $(cat $PIPELINE_WORKSPACE/project-image-name.txt)
-          registry: ${{ parameters.acr }}
+          tag: ${IMAGE_TAG}
+          name: ${IMAGE_NAME}
+          registry: ${IMAGE_REGISTRY}
       EOF
       echo "##vso[artifact.upload containerfolder=image;artifactname=image_artifacts${{ parameters.id }}]$PIPELINE_WORKSPACE/imageProperties.yaml"
 
     timeoutInMinutes: 5
+    condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH, 'false'))
     displayName: "Create image overview"
     #enabled: false
+
+  # Conditionally lock Docker images (make immutable) if lockImages is true.
+  # Using a pipeline expression prevents the need for 'acrServiceConnectionArm' when locking is disabled.
+  - ${{ if parameters.lockImages }}:
+    - task: AzureCLI@2
+      timeoutInMinutes: 5
+      condition: and(succeeded(), eq(variables.IS_PRIVATE_BRANCH, 'false'), eq(variables.IS_RELEASE_BUILD, 'true'))
+      displayName: "Set image attributes"
+      inputs:
+        azureSubscription: '${{ parameters.acrServiceConnectionArm }}'
+        scriptType: bash
+        scriptLocation: 'inlineScript'
+        visibleAzLogin: false
+        inlineScript: |
+          set -euo pipefail
+
+          echo "Locking Docker image: ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+          # Update the image attributes to make it immutable
+          az acr repository update \
+            --name "${IMAGE_REGISTRY}" \
+            --image "${IMAGE_NAME}:${IMAGE_TAG}" \
+            --delete-enabled false \
+            --write-enabled false
 
   - ${{ if not(eq(parameters.postHookTemplate, '')) }}:
     - template: ${{ parameters.postHookTemplate }}

@@ -83,3 +83,4 @@ stages:
           projectEnvName:                     dev
           uniqueSnapshotTag:                  True
           id:                                 ${{ entry.id }}
+          lockImages:                         False
