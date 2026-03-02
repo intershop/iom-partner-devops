@@ -123,11 +123,10 @@ jobs:
 
     # Version of Helm.
     #HELM_VERSION: 3.8.2
-    HELM_VERSION: 3.14.0
+    HELM_VERSION: 3.20.0
     
     # IOM Helm Charts.
-    # TODO: use latest version
-    IOM_HELM_VERSION: 3.0.0
+    IOM_HELM_VERSION: 3.1.1
     IOM_HELM_URL: https://intershop.github.io/helm-charts
     
     DBACCOUNT_IMAGE_NAME: iom-dbaccount
