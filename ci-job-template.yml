@@ -554,6 +554,42 @@ jobs:
     #enabled: false
 
   - script: |
+      # Don't stop on error - capture diagnostics even if some commands fail
+      set +e
+      
+      echo "=== Kubernetes Cluster Status ==="
+      kubectl get all -n $IOM_KUBERNETES_NAMESPACE
+      
+      echo -e "\n=== Pod Status Details ==="
+      kubectl get pods -n $IOM_KUBERNETES_NAMESPACE -o wide
+      
+      echo -e "\n=== Pod Descriptions ==="
+      kubectl describe pods -n $IOM_KUBERNETES_NAMESPACE
+      
+      echo -e "\n=== Events in namespace ==="
+      kubectl get events -n $IOM_KUBERNETES_NAMESPACE --sort-by='.lastTimestamp'
+      
+      echo -e "\n=== Container Logs ==="
+      # Get all pods in the namespace
+      for POD in $(kubectl get pods -n $IOM_KUBERNETES_NAMESPACE -o jsonpath='{.items[*].metadata.name}'); do
+        echo -e "\n--- Logs for pod: $POD ---"
+        kubectl logs $POD -n $IOM_KUBERNETES_NAMESPACE --all-containers=true --prefix=true --tail=100 || echo "Failed to get logs for $POD"
+      done
+      
+      echo -e "\n=== Postgres Status ==="
+      kubectl logs -n $IOM_KUBERNETES_NAMESPACE -l app.kubernetes.io/name=postgres --tail=50 || echo "No postgres logs available"
+      
+      echo -e "\n=== NGINX Ingress Status ==="
+      kubectl get all -n nginx
+      kubectl logs -n nginx -l app.kubernetes.io/name=ingress-nginx --tail=50 || echo "No nginx logs available"
+    continueOnError: true
+    timeoutInMinutes: 5
+    condition: always()
+    workingDirectory: $(Pipeline.Workspace)
+    displayName: "Capture installation diagnostics"
+    #enabled: false
+
+  - script: |
       set -e
 
       # get IP of ingress
