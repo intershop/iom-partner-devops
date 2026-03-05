@@ -5,9 +5,6 @@ trigger:
   branches:
     include:
       - test/*
-  paths:
-    include:
-      - azure-pipelines-docker-cgroup-check.yml
 pr: none
 
 variables:
