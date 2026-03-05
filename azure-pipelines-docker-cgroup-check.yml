@@ -1,7 +1,13 @@
 # Pipeline: Build an inline Dockerfile and validate JVM cgroup/system detection on build agents.
 # Runs on the configured build pool (iom-build-configuration -> BUILD_AGENT_POOL).
 
-trigger: none
+trigger:
+  branches:
+    include:
+      - test/*
+  paths:
+    include:
+      - azure-pipelines-docker-cgroup-check.yml
 pr: none
 
 variables:
