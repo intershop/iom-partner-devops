@@ -39,9 +39,9 @@ stages:
         RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
         RUN mkdir -p /tmp/jre
         WORKDIR /tmp/jre
-        RUN curl -L -O https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.18%2B8/OpenJDK17U-jre_x64_linux_hotspot_17.0.18_8.tar.gz
-        RUN tar -xf OpenJDK17U-jre_x64_linux_hotspot_17.0.18_8.tar.gz
-        RUN mv jdk-17.0.18+8-jre /opt/java-jre && rm OpenJDK17U-jre_x64_linux_hotspot_17.0.18_8.tar.gz
+        RUN curl -L -O https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.10%2B7/OpenJDK21U-jre_x64_linux_hotspot_21.0.10_7.tar.gz
+        RUN tar -xf OpenJDK21U-jre_x64_linux_hotspot_21.0.10_7.tar.gz
+        RUN mv jdk-21.0.10+7-jre /opt/java-jre && rm OpenJDK21U-jre_x64_linux_hotspot_21.0.10_7.tar.gz
         CMD ["java", "-version"]
         EOF
 
