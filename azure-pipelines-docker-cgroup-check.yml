@@ -1,0 +1,61 @@
+# Pipeline: Build an inline Dockerfile and validate JVM cgroup/system detection on build agents.
+# Runs on the configured build pool (iom-build-configuration -> BUILD_AGENT_POOL).
+
+trigger: none
+pr: none
+
+variables:
+- group: iom-build-configuration
+
+stages:
+- stage: DockerAndJvmCheck
+  displayName: Docker build and JVM cgroup check
+  jobs:
+  - job: BuildAndRun
+    displayName: Build image and run Java check
+    pool:
+      name: $(BUILD_AGENT_POOL)
+    steps:
+    - script: |
+        set -euo pipefail
+        docker version
+      displayName: Show Docker version
+
+    - script: |
+        set -euo pipefail
+
+        IMAGE_NAME="jdk-cgroup-check:${BUILD_BUILDID}"
+        WORK_DIR="$(Agent.TempDirectory)/jdk-cgroup-check"
+        INLINE_DOCKERFILE="${WORK_DIR}/Dockerfile.inline"
+
+        rm -rf "${WORK_DIR}"
+        mkdir -p "${WORK_DIR}"
+
+        cat > "${INLINE_DOCKERFILE}" <<'EOF'
+        FROM ubuntu:22.04
+        RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+        RUN mkdir -p /tmp/jre
+        WORKDIR /tmp/jre
+        RUN curl -L -O https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jre_x64_linux_hotspot_17.0.9_9.tar.gz
+        RUN tar -xf OpenJDK17U-jre_x64_linux_hotspot_17.0.9_9.tar.gz
+        RUN mv jdk-17.0.9+9-jre /opt/java-17-0-9-9 && rm OpenJDK17U-jre_x64_linux_hotspot_17.0.9_9.tar.gz
+        CMD ["java", "-version"]
+        EOF
+
+        echo "Building image ${IMAGE_NAME} from inline Dockerfile"
+        docker build -f "${INLINE_DOCKERFILE}" -t "${IMAGE_NAME}" "${WORK_DIR}"
+
+        uname -a
+
+        echo "Running JVM cgroup/system check"
+        docker run --rm \
+          --memory=512m \
+          --memory-swap=512m \
+          "${IMAGE_NAME}" \
+          /opt/java-17-0-9-9/bin/java -XshowSettings:system -Xlog:os+container=trace --version \
+          2>&1 | tee "$(Build.ArtifactStagingDirectory)/java-cgroup-check.log"
+      displayName: Build image and run Java cgroup check
+
+    - publish: $(Build.ArtifactStagingDirectory)/java-cgroup-check.log
+      artifact: java-cgroup-check
+      displayName: Publish Java cgroup check log

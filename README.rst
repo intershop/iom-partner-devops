@@ -100,3 +100,38 @@ Add the azure-pipelines.yml file to the root-directory of your project with the 
       #    clean: true
       #    timeoutInMinutes: 5
       #    displayName: "Checkout IOM project @$(Build.SourceBranchName)"
+
+---------------------------------------------
+How to run the Docker cgroup check pipeline
+---------------------------------------------
+
+The repository contains a dedicated pipeline file ``azure-pipelines-docker-cgroup-check.yml``.
+It builds an inline Docker image on your configured agent pool and runs this command inside
+the container:
+
+.. code-block:: bash
+
+  /opt/java-17-0-9-9/bin/java -XshowSettings:system -Xlog:os+container=trace --version
+
+Prerequisites
+-------------
+
+- Variable group ``iom-build-configuration`` is available in the Azure DevOps project.
+- Variable ``BUILD_AGENT_POOL`` points to the target build pool.
+- Agents in that pool have Docker available and permission to run ``docker build`` and ``docker run``.
+
+Create and run the pipeline
+---------------------------
+
+1. In Azure DevOps, open **Pipelines** -> **New pipeline**.
+2. Select your repository (this one).
+3. Choose **Existing Azure Pipelines YAML file**.
+4. Select ``azure-pipelines-docker-cgroup-check.yml``.
+5. Save and run.
+
+Where to find results
+---------------------
+
+- Open the job logs for runtime details.
+- Download artifact ``java-cgroup-check`` to inspect the command output in
+  ``java-cgroup-check.log``.
