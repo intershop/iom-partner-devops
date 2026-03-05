@@ -39,9 +39,9 @@ stages:
         RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
         RUN mkdir -p /tmp/jre
         WORKDIR /tmp/jre
-        RUN curl -L -O https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jre_x64_linux_hotspot_17.0.9_9.tar.gz
-        RUN tar -xf OpenJDK17U-jre_x64_linux_hotspot_17.0.9_9.tar.gz
-        RUN mv jdk-17.0.9+9-jre /opt/java-17-0-9-9 && rm OpenJDK17U-jre_x64_linux_hotspot_17.0.9_9.tar.gz
+        RUN curl -L -O https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.18%2B8/OpenJDK17U-jre_x64_linux_hotspot_17.0.18_8.tar.gz
+        RUN tar -xf OpenJDK17U-jre_x64_linux_hotspot_17.0.18_8.tar.gz
+        RUN mv jdk-17.0.18+8-jre /opt/java-jre && rm OpenJDK17U-jre_x64_linux_hotspot_17.0.18_8.tar.gz
         CMD ["java", "-version"]
         EOF
 
@@ -55,7 +55,7 @@ stages:
           --memory=512m \
           --memory-swap=512m \
           "${IMAGE_NAME}" \
-          /opt/java-17-0-9-9/bin/java -XshowSettings:system -Xlog:os+container=trace,gc*,gc+heap=debug -XX:MaxRAMPercentage=50 --version \
+          /opt/java-jre/bin/java -XshowSettings:system -Xlog:os+container=trace,gc*,gc+heap=debug -XX:MaxRAMPercentage=50 --version \
           2>&1 | tee "$(Build.ArtifactStagingDirectory)/java-cgroup-check.log"
       displayName: Build image and run Java cgroup check
 
