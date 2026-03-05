@@ -55,7 +55,7 @@ stages:
           --memory=512m \
           --memory-swap=512m \
           "${IMAGE_NAME}" \
-          /opt/java-17-0-9-9/bin/java -XshowSettings:system -Xlog:os+container=trace --version \
+          /opt/java-17-0-9-9/bin/java -XshowSettings:system -Xlog:os+container=trace,gc*,gc+heap=debug --version \
           2>&1 | tee "$(Build.ArtifactStagingDirectory)/java-cgroup-check.log"
       displayName: Build image and run Java cgroup check
 
